@@ -275,7 +275,7 @@ Write-Host "  │  # Verificar y probar escritura:                      │" -Fo
 Write-Host "  │  dir K:\                                              │" -ForegroundColor Yellow
 Write-Host "  │  echo Informe Q1 > K:\informe_dani.txt               │" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
-Write-Host "  │  # Dani NO puede acceder a /privado:                  │" -ForegroundColor Gray
+Write-Host "  │  # dani NO puede acceder a /privado:                  │" -ForegroundColor Gray
 Write-Host "  │  net use V: \\$IP_SERVIDOR\privado /user:dani Dani2026" -ForegroundColor Yellow
 Write-Host "  │  (Deberia dar: Error de sistema 5 / Acceso denegado)  │" -ForegroundColor Gray
 Write-Host "  │                                                       │" -ForegroundColor White

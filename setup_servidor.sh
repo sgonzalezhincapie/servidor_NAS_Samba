@@ -149,16 +149,16 @@ echo "[5/14] Creando usuarios del sistema..."
 id admin &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin admin
 echo "    Creado usuario: admin"
 
-id Dani &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin Dani
-echo "    Creado usuario: Dani"
+id dani &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin dani
+echo "    Creado usuario: dani"
 
-id Santi &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin Santi
-echo "    Creado usuario: Santi"
+id santi &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin santi
+echo "    Creado usuario: santi"
 
 id invitado &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin invitado
 echo "    Creado usuario: invitado"
 
-echo "    ✓ Usuarios creados: admin, Dani, Santi, invitado"
+echo "    ✓ Usuarios creados: admin, dani, santi, invitado"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 7: ASIGNACIÓN DE USUARIOS A GRUPOS
@@ -174,16 +174,16 @@ usermod -aG administradores admin
 echo "    admin → administradores"
 
 # Dani → miembro de: usuarios, contabilidad
-# Por qué: Dani es un empleado del departamento de contabilidad.
-usermod -aG usuarios Dani
-usermod -aG contabilidad Dani
-echo "    Dani → usuarios, contabilidad"
+# Por qué: dani es un empleado del departamento de contabilidad.
+usermod -aG usuarios dani
+usermod -aG contabilidad dani
+echo "    dani → usuarios, contabilidad"
 
 # Santi → miembro de: usuarios, sistemas
-# Por qué: Santi es un empleado del departamento de sistemas.
-usermod -aG usuarios Santi
-usermod -aG sistemas Santi
-echo "    Santi → usuarios, sistemas"
+# Por qué: santi es un empleado del departamento de sistemas.
+usermod -aG usuarios santi
+usermod -aG sistemas santi
+echo "    santi → usuarios, sistemas"
 
 # invitado → miembro de: invitados
 # Por qué: los invitados solo tienen acceso de lectura a /publico.
@@ -218,10 +218,15 @@ chown root:administradores /srv/datacorp/publico
 chmod 775 /srv/datacorp/publico
 echo "    /publico → 775 (root:administradores)"
 
-# /departamentos → acceso para el grupo usuarios
+# /departamentos → acceso para el grupo usuarios y administradores
+# Por qué: admin necesita atravesar este directorio para llegar a contabilidad/
+# y sistemas/. Usamos ACL para dar acceso a ambos grupos sin cambiar el grupo POSIX.
 chown root:usuarios /srv/datacorp/departamentos
 chmod 750 /srv/datacorp/departamentos
-echo "    /departamentos → 750 (root:usuarios)"
+# admin está en el grupo "administradores" (no en "usuarios"), así que sin esta
+# ACL no podría ni entrar a /departamentos/ para llegar a las subcarpetas.
+setfacl -m g:administradores:r-x /srv/datacorp/departamentos
+echo "    /departamentos → 750 (root:usuarios) + ACL administradores=r-x"
 
 # /departamentos/contabilidad → grupo contabilidad
 # Por qué: 2770 = rwxrws--- (el "2" al inicio activa el bit SGID).
@@ -370,12 +375,12 @@ echo "[10/14] Creando usuarios en Samba..."
 echo "    Usuario Samba creado: admin (contraseña: Admin2026)"
 
 # NOTA: Cambiar en producción
-(echo "Dani2026"; echo "Dani2026") | smbpasswd -s -a Dani
-echo "    Usuario Samba creado: Dani (contraseña: Dani2026)"
+(echo "Dani2026"; echo "Dani2026") | smbpasswd -s -a dani
+echo "    Usuario Samba creado: dani (contraseña: Dani2026)"
 
 # NOTA: Cambiar en producción
-(echo "Santi2026"; echo "Santi2026") | smbpasswd -s -a Santi
-echo "    Usuario Samba creado: Santi (contraseña: Santi2026)"
+(echo "Santi2026"; echo "Santi2026") | smbpasswd -s -a santi
+echo "    Usuario Samba creado: santi (contraseña: Santi2026)"
 
 # NOTA: Cambiar en producción
 (echo "Invitado2026"; echo "Invitado2026") | smbpasswd -s -a invitado
@@ -383,8 +388,8 @@ echo "    Usuario Samba creado: invitado (contraseña: Invitado2026)"
 
 # Por qué: Habilitamos cada usuario para que pueda autenticarse en Samba.
 smbpasswd -e admin
-smbpasswd -e Dani
-smbpasswd -e Santi
+smbpasswd -e dani
+smbpasswd -e santi
 smbpasswd -e invitado
 
 echo "    ✓ Usuarios Samba creados y habilitados."
@@ -393,8 +398,8 @@ echo "    ┌──────────────────────�
 echo "    │  CONTRASEÑAS DE EJEMPLO (CAMBIAR EN PROD.)   │"
 echo "    ├──────────────┬───────────────────────────────┤"
 echo "    │ admin        │ Admin2026                     │"
-echo "    │ Dani         │ Dani2026                      │"
-echo "    │ Santi        │ Santi2026                     │"
+echo "    │ dani         │ Dani2026                      │"
+echo "    │ santi        │ Santi2026                     │"
 echo "    │ invitado     │ Invitado2026                  │"
 echo "    └──────────────┴───────────────────────────────┘"
 echo ""
@@ -542,7 +547,7 @@ echo "   ✓ Samba instalado ($(smbd --version))"
 echo "   ✓ Estructura de directorios creada en /srv/datacorp/"
 echo "   ✓ 5 grupos creados: administradores, usuarios, invitados,"
 echo "     contabilidad, sistemas"
-echo "   ✓ 4 usuarios creados: admin, Dani, Santi, invitado"
+echo "   ✓ 4 usuarios creados: admin, dani, santi, invitado"
 echo "   ✓ Permisos POSIX y ACLs configurados"
 echo "   ✓ Usuarios registrados en Samba"
 echo "   ✓ Servicios smbd y nmbd activos y habilitados"
