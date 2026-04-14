@@ -17,8 +17,9 @@
 7. [PARTE B — Configuración del Cliente Linux (Arch Linux)](#parte-b--configuración-del-cliente-linux-arch-linux)
 8. [PARTE C — Configuración del Cliente Windows (Windows 10/11)](#parte-c--configuración-del-cliente-windows-windows-1011)
 9. [Pruebas de Verificación de Perfiles](#pruebas-de-verificación-de-perfiles)
-10. [Solución de Problemas](#solución-de-problemas)
-11. [Preguntas Frecuentes para la Exposición](#preguntas-frecuentes-para-la-exposición)
+10. [Gestión de Permisos desde el Administrador](#gestión-de-permisos-desde-el-administrador-servidor)
+11. [Solución de Problemas](#solución-de-problemas)
+12. [Preguntas Frecuentes para la Exposición](#preguntas-frecuentes-para-la-exposición)
 
 ---
 
@@ -80,15 +81,46 @@ Un **NAS** es exactamente eso, pero digital: un servidor que comparte carpetas e
 
 **Antes de comenzar, identifica y anota estos datos. Los necesitarás en múltiples pasos.**
 
+> **NOTA IMPORTANTE — IP dinámica (DHCP):** En este laboratorio **no configuramos IP estática** porque estamos en un entorno universitario donde no tenemos control de la infraestructura de red. Los tres equipos obtendrán su IP automáticamente por DHCP. Esto significa que la IP del servidor **puede cambiar** al reiniciar. Antes de conectar los clientes, siempre verifica la IP actual del servidor con `ip -4 addr show` (Linux) o `ipconfig` (Windows).
+
 | Variable                  | Valor a completar         | Cómo encontrarlo                                           |
 |---------------------------|---------------------------|------------------------------------------------------------|
-| IP del servidor           | ______________________    | En el servidor: `ip -4 addr show \| grep inet`             |
+| IP del servidor (DHCP)    | ______________________    | En el servidor: `ip -4 addr show \| grep inet`             |
 | Interfaz de red (servidor)| ______________________    | En el servidor: `ip a \| grep -E '^[0-9]+:'`               |
 | IP del cliente Linux      | ______________________    | En Arch: `ip -4 addr show \| grep inet`                    |
 | IP del cliente Windows    | ______________________    | En Windows: `ipconfig` en CMD/PowerShell                   |
 | Nombre del grupo de trabajo| DATACORP                 | Ya definido en este laboratorio                            |
-| Subred                    | ______________________    | Normalmente `192.168.x.0/24` o similar                     |
-| Gateway (puerta de enlace)| ______________________    | `ip route \| grep default` o `ipconfig` en Windows         |
+
+### ¿Quién hace qué? — Roles del equipo
+
+Cada integrante opera **un equipo** con un sistema operativo diferente. Estos son los roles y responsabilidades:
+
+| Integrante | Equipo | Sistema Operativo | Rol en el lab | Qué debe hacer |
+|------------|--------|-------------------|---------------|----------------|
+| **Manuela** | Servidor | Ubuntu 24.04 LTS | Administradora del servidor | Ejecuta `setup_servidor.sh`, configura Samba, gestiona usuarios y permisos |
+| **Santiago** | Cliente Linux | Arch Linux | Cliente Linux | Ejecuta `setup_cliente_arch.sh`, monta shares, prueba acceso con diferentes usuarios |
+| **Daniel** | Cliente Windows | Windows 10/11 | Cliente Windows | Ejecuta `setup_cliente_windows.ps1`, mapea unidades de red, prueba acceso |
+
+### Usuarios Samba y sus permisos
+
+El servidor crea estos **usuarios Samba** (no confundir con los integrantes del equipo). Estos usuarios son las "llaves" con las que los clientes se conectan:
+
+| Usuario Samba | Contraseña | Grupos | Acceso a shares |
+|---------------|------------|--------|-----------------|
+| `admin` | `Admin2026` | `administradores` | **Todo**: publico (R+W), contabilidad (R+W), sistemas (R+W), privado (R+W), admin (R+W) |
+| `juan` | `Juan2026` | `usuarios`, `contabilidad` | publico (R), contabilidad (R+W). **Sin acceso** a: sistemas, privado, admin |
+| `maria` | `Maria2026` | `usuarios`, `sistemas` | publico (R), sistemas (R+W). **Sin acceso** a: contabilidad, privado, admin |
+| `invitado` | *(sin contraseña)* | `invitados` | publico (R). **Sin acceso** a todo lo demás |
+
+**R** = solo lectura | **R+W** = lectura y escritura
+
+> **Cualquier integrante puede usar cualquier usuario** desde su equipo. Por ejemplo, Daniel (Windows) puede probar conectándose como `juan`, `maria` o `admin` para verificar que los permisos funcionan. Lo mismo Santiago desde Arch Linux.
+
+### Orden de ejecución recomendado
+
+1. **Manuela primero** → Configura el servidor ejecutando `setup_servidor.sh` en Ubuntu
+2. **Manuela comparte la IP** → Revisa la IP del servidor (`ip -4 addr show`) y se la comunica a Santiago y Daniel
+3. **Santiago y Daniel** → Configuran la IP en sus scripts y los ejecutan desde sus respectivos equipos
 
 ### ¿Cómo identificar la interfaz de red?
 
@@ -137,7 +169,8 @@ Verás algo como:
     │  │  └── admin/            │  │
     │  └────────────────────────┘  │
     │                              │
-    │  IP: <IP_SERVIDOR>           │
+    │  IP: (DHCP — verificar con   │
+    │       ip -4 addr show)       │
     │  Interfaz: <INTERFAZ_RED>    │
     └──────────────┬───────────────┘
                    │
@@ -251,122 +284,54 @@ Nuestro sistema tiene **tres capas de seguridad** que trabajan juntas:
 
 ## PARTE A — Configuración del Servidor (Ubuntu 24.04)
 
-### Paso 1: Configurar IP fija con Netplan
+### Paso 1: Identificar la IP del servidor (DHCP)
 
-**¿Por qué IP fija?** Si el servidor cambia de IP cada vez que reinicia (DHCP), los clientes no sabrán dónde encontrarlo. Una IP fija garantiza que la dirección del servidor sea siempre la misma.
+> **Nota:** No configuramos IP estática porque estamos en un entorno universitario sin control de la infraestructura de red. Usamos la IP que el DHCP de la universidad asigna automáticamente. **Antes de cada sesión de laboratorio**, Manuela debe verificar la IP actual y comunicársela a Santiago y Daniel.
 
-#### 1.1. Identificar la interfaz de red y configuración actual
+#### 1.1. Identificar la interfaz de red
 
 ```bash
 # Ver todas las interfaces de red
 ip a | grep -E '^[0-9]+:'
+```
 
+Verás algo como:
+
+```
+1: lo: <LOOPBACK,UP,LOWER_UP>
+2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP>
+```
+
+- `lo` es la interfaz **loopback** (localhost) — **ignórala**.
+- `enp3s0` (o `eth0`, `ens33`, `wlp2s0`, etc.) es tu interfaz de red real — **anótala**, la necesitas para `smb.conf`.
+
+#### 1.2. Verificar la IP actual asignada por DHCP
+
+```bash
 # Ver la IP actual del servidor
 ip -4 addr show
-
-# Ver la puerta de enlace (gateway) actual
-ip route | grep default
 ```
 
 Ejemplo de salida:
 
 ```
-1: lo: <LOOPBACK,UP,LOWER_UP>
 2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP>
-
-inet 192.168.1.105/24 brd 192.168.1.255 scope global dynamic enp3s0
-
-default via 192.168.1.1 dev enp3s0
+    inet 192.168.1.105/24 brd 192.168.1.255 scope global dynamic enp3s0
 ```
 
 De aquí extraemos:
-- **Interfaz**: `enp3s0`
-- **IP actual**: `192.168.1.105`
-- **Máscara**: `/24` (equivale a `255.255.255.0`)
-- **Gateway**: `192.168.1.1`
+- **Interfaz**: `enp3s0` → Necesaria para `smb.conf`
+- **IP actual**: `192.168.1.105` → Esta es la IP que Santiago y Daniel deben usar en sus scripts
 
-#### 1.2. Identificar el servidor DNS
+> **⚠ IMPORTANTE:** La palabra `dynamic` confirma que la IP fue asignada por DHCP. Esta IP puede cambiar si el servidor se reinicia o si pasa mucho tiempo. Siempre verifícala antes de empezar.
 
-```bash
-# Ver el servidor DNS actual
-resolvectl status | grep "DNS Servers"
-# O alternativamente:
-cat /etc/resolv.conf | grep nameserver
-```
+#### 1.3. Comunicar la IP a los compañeros
 
-#### 1.3. Crear el archivo de configuración Netplan
+Una vez identificada la IP del servidor, Manuela debe comunicarla a:
+- **Santiago** (Arch Linux) → Para que la ponga en `setup_cliente_arch.sh` (variable `IP_SERVIDOR`)
+- **Daniel** (Windows) → Para que la ponga en `setup_cliente_windows.ps1` (variable `$IP_SERVIDOR`)
 
-> **NOTA sobre Ubuntu 24.04 vs 22.04:** Ubuntu 24.04 usa **Netplan** como gestor de red por defecto. El archivo YAML puede llamarse `01-netcfg.yaml`, `50-cloud-init.yaml` o similar. Verifica qué archivo existe primero.
-
-```bash
-# Ver qué archivos de Netplan ya existen
-ls /etc/netplan/
-```
-
-Edita (o crea) el archivo de configuración. **Reemplaza los valores** `<INTERFAZ_RED>`, `<IP_SERVIDOR>`, `<GATEWAY>` y `<DNS>` con tus datos reales:
-
-```bash
-sudo nano /etc/netplan/01-datacorp-static.yaml
-```
-
-Contenido del archivo:
-
-```yaml
-# Configuración de red estática para el servidor NAS DataCorp
-# IMPORTANTE: Usa espacios, NO tabulaciones. YAML es sensible a la indentación.
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    <INTERFAZ_RED>:         # Reemplazar por tu interfaz (ej: enp3s0)
-      dhcp4: no             # Desactivar DHCP (queremos IP fija)
-      addresses:
-        - <IP_SERVIDOR>/24  # Tu IP fija (ej: 192.168.1.100/24)
-      routes:
-        - to: default
-          via: <GATEWAY>    # Tu puerta de enlace (ej: 192.168.1.1)
-      nameservers:
-        addresses:
-          - 8.8.8.8         # DNS de Google (público y confiable)
-          - 8.8.4.4         # DNS secundario de Google
-```
-
-**Ejemplo concreto** (si tu interfaz es `enp3s0` y quieres la IP `192.168.1.100`):
-
-```yaml
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp3s0:
-      dhcp4: no
-      addresses:
-        - 192.168.1.100/24
-      routes:
-        - to: default
-          via: 192.168.1.1
-      nameservers:
-        addresses:
-          - 8.8.8.8
-          - 8.8.4.4
-```
-
-#### 1.4. Aplicar la configuración
-
-```bash
-# Validar que el YAML está bien escrito (detecta errores de sintaxis)
-sudo netplan generate
-
-# Aplicar la nueva configuración de red
-sudo netplan apply
-
-# Verificar que la IP fija se asignó correctamente
-ip -4 addr show <INTERFAZ_RED>
-```
-
-> **⚠ CUIDADO:** Si estás conectado por SSH, al cambiar la IP puedes perder la conexión. Tendrás que reconectarte usando la nueva IP.
-
-#### 1.5. Verificar conectividad
+#### 1.4. Verificar conectividad
 
 ```bash
 # Verificar que tienes internet (para instalar paquetes)
@@ -992,6 +957,185 @@ sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
 
 ---
 
+## Gestión de Permisos desde el Administrador (Servidor)
+
+Esta sección explica cómo **Manuela (administradora del servidor Ubuntu)** puede modificar los permisos y accesos de los otros dos dispositivos en tiempo real. Todos estos comandos se ejecutan **en el servidor Ubuntu**.
+
+### Ver el estado actual de usuarios y grupos
+
+```bash
+# Ver todos los usuarios de Samba registrados
+sudo pdbedit -L
+
+# Ver a qué grupos pertenece cada usuario
+groups admin juan maria invitado
+
+# Ver las ACLs actuales de cada carpeta
+getfacl /srv/datacorp/publico
+getfacl /srv/datacorp/departamentos/contabilidad
+getfacl /srv/datacorp/departamentos/sistemas
+getfacl /srv/datacorp/privado
+getfacl /srv/datacorp/admin
+```
+
+### Caso 1: Dar acceso a un usuario a un departamento que no le corresponde
+
+Ejemplo: Permitir que **juan** (contabilidad) también acceda a **sistemas**.
+
+```bash
+# 1. Agregar a juan al grupo "sistemas" en Linux
+sudo usermod -aG sistemas juan
+
+# 2. Agregar a juan en la directiva "valid users" de [sistemas] en smb.conf
+sudo nano /etc/samba/smb.conf
+# Busca la sección [sistemas] y cambia:
+#   valid users = @sistemas @administradores
+# por:
+#   valid users = @sistemas @administradores juan
+
+# 3. Reiniciar Samba para que tome los cambios
+sudo systemctl restart smbd
+
+# 4. Verificar que juan ahora está en el grupo
+groups juan
+# Salida esperada: juan : juan usuarios contabilidad sistemas
+```
+
+**Desde Arch Linux (Santiago)** — Para probar el cambio:
+```bash
+# Desmontar si ya estaba montado
+sudo umount /mnt/datacorp/sistemas 2>/dev/null
+# Montar como juan (ahora debería funcionar)
+sudo mount.cifs //<IP_SERVIDOR>/sistemas /mnt/datacorp/sistemas \
+  -o username=juan,password=Juan2026,vers=3.0,uid=$(id -u),gid=$(id -g)
+ls /mnt/datacorp/sistemas
+```
+
+**Desde Windows (Daniel)** — Para probar el cambio:
+```powershell
+# Limpiar conexiones anteriores
+net use S: /delete 2>$null
+# Reconectar como juan
+net use S: \\<IP_SERVIDOR>\sistemas /user:juan Juan2026
+dir S:\
+```
+
+### Caso 2: Quitar acceso a un usuario
+
+Ejemplo: Revocar el acceso de **juan** a **contabilidad**.
+
+```bash
+# 1. Quitar a juan del grupo "contabilidad" en Linux
+sudo gpasswd -d juan contabilidad
+
+# 2. (Opcional) También quitarlo del valid users en smb.conf si estaba explícito
+sudo nano /etc/samba/smb.conf
+
+# 3. Reiniciar Samba
+sudo systemctl restart smbd
+
+# 4. Verificar
+groups juan
+# juan ya no aparece en el grupo "contabilidad"
+```
+
+Desde los clientes: al intentar acceder a `/contabilidad` como juan, ahora recibirán `NT_STATUS_ACCESS_DENIED` o `Permission denied`.
+
+### Caso 3: Crear un usuario nuevo
+
+Ejemplo: llega un empleado nuevo llamado **pedro** al departamento de contabilidad.
+
+```bash
+# 1. Crear el usuario en Linux (sin acceso por consola, solo para Samba)
+sudo useradd -M -s /usr/sbin/nologin pedro
+
+# 2. Agregar a los grupos correspondientes
+sudo usermod -aG usuarios pedro
+sudo usermod -aG contabilidad pedro
+
+# 3. Crear la contraseña de Samba (se le pedirá ingresarla dos veces)
+sudo smbpasswd -a pedro
+
+# 4. Habilitar el usuario en Samba
+sudo smbpasswd -e pedro
+
+# 5. Reiniciar Samba
+sudo systemctl restart smbd
+
+# 6. Verificar
+sudo pdbedit -L | grep pedro
+groups pedro
+# Salida: pedro : pedro usuarios contabilidad
+```
+
+Ahora los clientes pueden conectarse como `pedro` con la contraseña que se configuró.
+
+### Caso 4: Cambiar permisos de una carpeta (lectura ↔ escritura)
+
+Ejemplo: Hacer que **usuarios** (juan, maria) puedan **escribir** en `/publico` (actualmente solo lectura).
+
+```bash
+# Opción A: Cambiar ACL del sistema de archivos
+sudo setfacl -R -m g:usuarios:rwx /srv/datacorp/publico
+sudo setfacl -R -d -m g:usuarios:rwx /srv/datacorp/publico
+
+# Opción B: También cambiar en smb.conf para mayor claridad
+sudo nano /etc/samba/smb.conf
+# En la sección [publico], cambiar:
+#   write list = @administradores
+# por:
+#   write list = @administradores @usuarios
+
+# Reiniciar Samba
+sudo systemctl restart smbd
+```
+
+Para **revertir** (volver a solo lectura para usuarios):
+```bash
+sudo setfacl -R -m g:usuarios:r-x /srv/datacorp/publico
+sudo setfacl -R -d -m g:usuarios:r-x /srv/datacorp/publico
+# Y en smb.conf, quitar @usuarios del write list
+sudo systemctl restart smbd
+```
+
+### Caso 5: Deshabilitar un usuario temporalmente
+
+```bash
+# Deshabilitar (el usuario no puede conectarse pero no se borra)
+sudo smbpasswd -d juan
+
+# Habilitar de nuevo
+sudo smbpasswd -e juan
+```
+
+### Caso 6: Verificar quién está conectado en este momento
+
+```bash
+# Ver conexiones activas de Samba
+sudo smbstatus
+
+# Esto muestra: qué usuarios están conectados, desde qué IP, a qué share
+```
+
+### Resumen de comandos de administración
+
+| Acción | Comando |
+|--------|---------|
+| Ver usuarios Samba | `sudo pdbedit -L` |
+| Ver grupos de un usuario | `groups <usuario>` |
+| Agregar usuario a grupo | `sudo usermod -aG <grupo> <usuario>` |
+| Quitar usuario de grupo | `sudo gpasswd -d <usuario> <grupo>` |
+| Crear usuario Samba | `sudo useradd -M -s /usr/sbin/nologin <user>` + `sudo smbpasswd -a <user>` |
+| Deshabilitar usuario | `sudo smbpasswd -d <usuario>` |
+| Habilitar usuario | `sudo smbpasswd -e <usuario>` |
+| Cambiar contraseña Samba | `sudo smbpasswd <usuario>` |
+| Modificar ACLs | `sudo setfacl -R -m g:<grupo>:<permisos> <ruta>` |
+| Ver ACLs | `getfacl <ruta>` |
+| Ver conexiones activas | `sudo smbstatus` |
+| Reiniciar Samba | `sudo systemctl restart smbd` |
+
+---
+
 ## Solución de Problemas
 
 ### Error 1: `NT_STATUS_ACCESS_DENIED`
@@ -1140,7 +1284,7 @@ echo "<IP_SERVIDOR>  servidor-datacorp" | sudo tee -a /etc/hosts
 | Aspecto | Ubuntu 22.04 | Ubuntu 24.04 |
 |---------|-------------|-------------|
 | Samba versión | 4.15.x | 4.19.x+ |
-| Netplan | Disponible | Por defecto (renderer: networkd) |
+| Red | DHCP por defecto | DHCP por defecto (Netplan) |
 | SMB1 | Deshabilitado por defecto | Deshabilitado por defecto |
 | Protocolo mín. | SMB2_02 | SMB2_02 |
 | UFW | Activo si se instaló | Puede estar activo |
@@ -1241,7 +1385,7 @@ net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
 
 ### P: ¿Qué pasa si el servidor se apaga?
 
-**R:** Los clientes que tienen shares montados verán errores de "stale file handle" o "host is down" al intentar acceder a los archivos. La solución es desmontar (`umount -l`) y volver a montar cuando el servidor esté disponible. Si usamos `/etc/fstab` con la opción `nofail`, el cliente arrancará normalmente aunque el servidor esté apagado.
+**R:** Los clientes que tienen shares montados verán errores de "stale file handle" o "host is down" al intentar acceder a los archivos. La solución es desmontar (`umount -l`) y volver a montar cuando el servidor esté disponible. Además, como usamos IP dinámica (DHCP), la IP del servidor podría cambiar al reiniciar; Manuela debe verificarla con `ip -4 addr show` y comunicarla nuevamente a Santiago y Daniel.
 
 ### P: ¿Es seguro este sistema para producción?
 
