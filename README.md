@@ -12,10 +12,11 @@ Este repositorio contiene un laboratorio práctico y académico de cómo funcion
 
 ## Entorno
 
-| Rol | Sistema Operativo | Función |
-|-----|-------------------|---------|
-| **Servidor** | Ubuntu 24.04 LTS | Servidor de archivos Samba |
-| **Cliente** | Arch Linux | Accede a los recursos compartidos |
+| Rol | Sistema Operativo | Equipo | Función |
+|-----|-------------------|--------|---------|
+| **Servidor** | Ubuntu 24.04 LTS | Compañera (Manuela) | Servidor de archivos Samba |
+| **Cliente Linux** | Arch Linux | Propio (Santiago) | Accede a los recursos compartidos vía mount.cifs |
+| **Cliente Windows** | Windows 10/11 | Compañero (Daniel) | Accede a los recursos compartidos vía SMB nativo |
 
 ## Archivos del repositorio
 
@@ -24,6 +25,7 @@ Este repositorio contiene un laboratorio práctico y académico de cómo funcion
 | `setup_servidor.sh` | Script de configuración completa del servidor Ubuntu (usuarios, grupos, permisos, ACLs, Samba) |
 | `smb.conf` | Archivo de configuración de Samba (`/etc/samba/smb.conf`) con todos los shares |
 | `setup_cliente_arch.sh` | Script de configuración del cliente Arch Linux (paquetes, montaje de shares) |
+| `setup_cliente_windows.ps1` | Script PowerShell de configuración del cliente Windows (mapeo de unidades de red) |
 | `INSTRUCTIVO.md` | Guía paso a paso para montar todo el laboratorio desde cero |
 | `verificacion_permisos.sh` | Script de pruebas automáticas que valida los permisos en el servidor |
 
@@ -39,11 +41,21 @@ sudo bash setup_servidor.sh
 sudo bash verificacion_permisos.sh
 ```
 
-### En el cliente (Arch Linux):
+### En el cliente Linux (Arch Linux):
 ```bash
 # 1. Editar setup_cliente_arch.sh y reemplazar <IP_SERVIDOR>
 # 2. Ejecutar el script del cliente:
 sudo bash setup_cliente_arch.sh
+```
+
+### En el cliente Windows (Windows 10/11):
+```powershell
+# 1. Abrir PowerShell como Administrador
+# 2. Habilitar scripts: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+# 3. Editar setup_cliente_windows.ps1 y reemplazar <IP_SERVIDOR>
+# 4. Ejecutar:
+.\setup_cliente_windows.ps1
+# Alternativa rápida (GUI): Win+R → \\<IP_SERVIDOR> → Enter
 ```
 
 ## Estructura del NAS

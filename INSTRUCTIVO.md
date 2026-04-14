@@ -14,16 +14,17 @@
 4. [Diagrama del entorno](#4-diagrama-del-entorno)
 5. [Marco teórico: ¿Qué es un NAS y qué es Samba?](#5-marco-teórico-qué-es-un-nas-y-qué-es-samba)
 6. [PARTE A — Configuración del Servidor (Ubuntu 24.04)](#parte-a--configuración-del-servidor-ubuntu-2404)
-7. [PARTE B — Configuración del Cliente (Arch Linux)](#parte-b--configuración-del-cliente-arch-linux)
-8. [Pruebas de Verificación de Perfiles](#pruebas-de-verificación-de-perfiles)
-9. [Solución de Problemas](#solución-de-problemas)
-10. [Preguntas Frecuentes para la Exposición](#preguntas-frecuentes-para-la-exposición)
+7. [PARTE B — Configuración del Cliente Linux (Arch Linux)](#parte-b--configuración-del-cliente-linux-arch-linux)
+8. [PARTE C — Configuración del Cliente Windows (Windows 10/11)](#parte-c--configuración-del-cliente-windows-windows-1011)
+9. [Pruebas de Verificación de Perfiles](#pruebas-de-verificación-de-perfiles)
+10. [Solución de Problemas](#solución-de-problemas)
+11. [Preguntas Frecuentes para la Exposición](#preguntas-frecuentes-para-la-exposición)
 
 ---
 
 ## 1. Introducción: Qué es este laboratorio y qué demuestra
 
-Este laboratorio implementa un **servidor NAS (Network Attached Storage)** usando **Samba** en un entorno real con dos computadores conectados a la misma red local.
+Este laboratorio implementa un **servidor NAS (Network Attached Storage)** usando **Samba** en un entorno real con **tres computadores** conectados a la misma red local.
 
 ### ¿Qué es un NAS?
 
@@ -41,30 +42,36 @@ Un **NAS** es exactamente eso, pero digital: un servidor que comparte carpetas e
 
 ### ¿Qué demuestra este laboratorio?
 
-1. **Compartir archivos en red** entre un servidor Linux y un cliente Linux.
-2. **Control de acceso basado en roles (RBAC)**: diferentes usuarios tienen diferentes permisos.
-3. **Seguridad en capas**: permisos POSIX + ACLs + directivas de Samba.
-4. **Configuración real**: no usamos máquinas virtuales sino computadores reales.
+1. **Compartir archivos en red** entre un servidor Linux y clientes Linux y Windows.
+2. **Entorno multiplataforma**: el mismo servidor Samba atiende clientes de diferentes sistemas operativos.
+3. **Control de acceso basado en roles (RBAC)**: diferentes usuarios tienen diferentes permisos.
+4. **Seguridad en capas**: permisos POSIX + ACLs + directivas de Samba.
+5. **Configuración real**: no usamos máquinas virtuales sino computadores reales.
 
 ---
 
 ## 2. Requisitos previos
 
 ### Hardware
-- **2 computadores** conectados a la misma red local (LAN), ya sea por cable Ethernet o WiFi.
+- **3 computadores** conectados a la misma red local (LAN), ya sea por cable Ethernet o WiFi.
 - **Conexión a internet** (solo para instalar paquetes; el NAS funciona sin internet).
 
-### Software — Servidor
+### Software — Servidor (equipo de Manuela)
 - **Ubuntu 24.04 LTS** (Noble Numbat) instalado y con acceso a terminal.
 - Acceso como **root** (o usuario con `sudo`).
 
-### Software — Cliente
+### Software — Cliente Linux (equipo de Santiago)
 - **Arch Linux** (rolling release, actualizado).
 - Acceso como **root** (o usuario con `sudo`).
 
+### Software — Cliente Windows (equipo de Daniel)
+- **Windows 10 u 11** (cualquier edición: Home, Pro, Education).
+- Acceso como **Administrador** (para ejecutar scripts de PowerShell).
+- SMB viene habilitado por defecto en Windows; no se necesita instalar nada adicional.
+
 ### Conocimientos asumidos
-- Saber abrir una terminal.
-- Saber escribir y ejecutar comandos básicos (`cd`, `ls`, `sudo`).
+- Saber abrir una terminal (Linux) o PowerShell (Windows).
+- Saber escribir y ejecutar comandos básicos (`cd`, `ls`, `sudo` en Linux; `dir`, `cd` en Windows).
 - *No se requiere experiencia con Samba, NFS ni redes avanzadas.*
 
 ---
@@ -77,10 +84,11 @@ Un **NAS** es exactamente eso, pero digital: un servidor que comparte carpetas e
 |---------------------------|---------------------------|------------------------------------------------------------|
 | IP del servidor           | ______________________    | En el servidor: `ip -4 addr show \| grep inet`             |
 | Interfaz de red (servidor)| ______________________    | En el servidor: `ip a \| grep -E '^[0-9]+:'`               |
-| IP del cliente            | ______________________    | En el cliente: `ip -4 addr show \| grep inet`              |
+| IP del cliente Linux      | ______________________    | En Arch: `ip -4 addr show \| grep inet`                    |
+| IP del cliente Windows    | ______________________    | En Windows: `ipconfig` en CMD/PowerShell                   |
 | Nombre del grupo de trabajo| DATACORP                 | Ya definido en este laboratorio                            |
 | Subred                    | ______________________    | Normalmente `192.168.x.0/24` o similar                     |
-| Gateway (puerta de enlace)| ______________________    | `ip route \| grep default`                                 |
+| Gateway (puerta de enlace)| ______________________    | `ip route \| grep default` o `ipconfig` en Windows         |
 
 ### ¿Cómo identificar la interfaz de red?
 
@@ -113,30 +121,47 @@ Verás algo como:
 ## 4. Diagrama del entorno
 
 ```
-    ┌──────────────────────────────┐          ┌──────────────────────────────┐
-    │       SERVIDOR NAS           │          │         CLIENTE              │
-    │    Ubuntu 24.04 LTS          │          │       Arch Linux             │
-    │                              │          │                              │
-    │  Samba (smbd + nmbd)         │          │  cifs-utils + smbclient      │
-    │  ┌────────────────────────┐  │          │                              │
-    │  │  /srv/datacorp/        │  │          │  Puntos de montaje:          │
-    │  │  ├── publico/          │  │          │  /mnt/datacorp/              │
-    │  │  ├── departamentos/    │  │          │  ├── publico/                │
-    │  │  │   ├── contabilidad/ │  │          │  ├── contabilidad/           │
-    │  │  │   └── sistemas/     │  │          │  ├── sistemas/               │
-    │  │  ├── privado/          │  │          │  ├── privado/                │
-    │  │  └── admin/            │  │          │  └── admin/                  │
-    │  └────────────────────────┘  │          │                              │
-    │                              │          │                              │
-    │  IP: <IP_SERVIDOR>           │          │  IP: (automática o fija)     │
-    │  Interfaz: <INTERFAZ_RED>    │          │                              │
-    └──────────────┬───────────────┘          └──────────────┬───────────────┘
-                   │                                          │
-                   │         Red Local (LAN)                  │
-                   │    ┌──────────────────────┐              │
-                   └────┤   Switch / Router     ├─────────────┘
-                        │  192.168.x.0/24      │
-                        └──────────────────────┘
+    ┌──────────────────────────────┐
+    │       SERVIDOR NAS           │
+    │    Ubuntu 24.04 LTS          │
+    │  (equipo de Manuela)         │
+    │                              │
+    │  Samba (smbd + nmbd)         │
+    │  ┌────────────────────────┐  │
+    │  │  /srv/datacorp/        │  │
+    │  │  ├── publico/          │  │
+    │  │  ├── departamentos/    │  │
+    │  │  │   ├── contabilidad/ │  │
+    │  │  │   └── sistemas/     │  │
+    │  │  ├── privado/          │  │
+    │  │  └── admin/            │  │
+    │  └────────────────────────┘  │
+    │                              │
+    │  IP: <IP_SERVIDOR>           │
+    │  Interfaz: <INTERFAZ_RED>    │
+    └──────────────┬───────────────┘
+                   │
+                   │         Red Local (LAN)
+                   │    ┌──────────────────────┐
+                   ├────┤   Switch / Router     ├────────┬────────────────────┐
+                   │    │  192.168.x.0/24      │        │                    │
+                   │    └──────────────────────┘        │                    │
+                   │                                     │                    │
+    ┌──────────────┴───────────────┐     ┌──────────────┴──────────────┐    ┌┴─────────────────────────────┐
+    │      CLIENTE LINUX           │     │     CLIENTE WINDOWS         │    │                              │
+    │      Arch Linux              │     │     Windows 10/11           │    │    Otros dispositivos...     │
+    │  (equipo de Santiago)        │     │  (equipo de Daniel)         │    │    (pueden conectarse con    │
+    │                              │     │                              │    │     cualquier SO con SMB)    │
+    │  cifs-utils + smbclient      │     │  SMB nativo (sin instalar)  │    └──────────────────────────────┘
+    │                              │     │                              │
+    │  Puntos de montaje:          │     │  Unidades de red mapeadas:  │
+    │  /mnt/datacorp/              │     │  P: = \\servidor\publico    │
+    │  ├── publico/                │     │  K: = \\servidor\contabilid.│
+    │  ├── contabilidad/           │     │  S: = \\servidor\sistemas   │
+    │  ├── sistemas/               │     │  V: = \\servidor\privado    │
+    │  ├── privado/                │     │  A: = \\servidor\admin      │
+    │  └── admin/                  │     │                              │
+    └──────────────────────────────┘     └──────────────────────────────┘
                         
     Protocolo: SMB3 (puerto 445/TCP)
     Autenticación: Usuario/Contraseña (Samba local)
@@ -145,10 +170,12 @@ Verás algo como:
 ### Flujo de comunicación
 
 ```
-    Cliente                                    Servidor
+    Cliente (Linux o Windows)              Servidor (Ubuntu)
     ┌──────┐    1. Solicitud SMB (puerto 445)  ┌──────┐
-    │ Arch │ ────────────────────────────────→ │Ubuntu│
-    │Linux │    2. Autenticación (user/pass)    │24.04 │
+    │ Arch │    (mount.cifs / net use /         │Ubuntu│
+    │Linux │     Explorador de archivos)        │24.04 │
+    │  o   │ ────────────────────────────────→ │      │
+    │ Win  │    2. Autenticación (user/pass)    │      │
     │      │ ────────────────────────────────→ │      │
     │      │    3. Samba verifica credenciales  │      │
     │      │    4. Samba verifica permisos      │      │
@@ -512,7 +539,7 @@ invitado : invitado invitados
 
 ---
 
-## PARTE B — Configuración del Cliente (Arch Linux)
+## PARTE B — Configuración del Cliente Linux (Arch Linux)
 
 ### Paso 1: Instalar herramientas necesarias
 
@@ -706,9 +733,160 @@ smbclient //<IP_SERVIDOR>/privado -U juan
 
 ---
 
+## PARTE C — Configuración del Cliente Windows (Windows 10/11)
+
+> **¿Por qué Windows no necesita instalar nada?** SMB es un protocolo inventado por Microsoft. Windows lo soporta de forma nativa desde hace décadas. No necesitas instalar paquetes como en Linux; el Explorador de archivos ya sabe "hablar" SMB.
+
+### Paso 1: Verificar conectividad con el servidor
+
+Abre **PowerShell** o **CMD** (no necesita ser como Administrador para esto):
+
+```powershell
+# Verificar que hay conexión de red con el servidor
+ping <IP_SERVIDOR>
+```
+
+Si responde, hay conexión. Si no, verifica que ambos equipos estén en la misma red.
+
+```powershell
+# Verificar que el puerto SMB (445) está abierto
+Test-NetConnection -ComputerName <IP_SERVIDOR> -Port 445
+```
+
+Si `TcpTestSucceeded` dice `True`, Samba está accesible.
+
+### Paso 2: Acceder a los shares desde el Explorador de archivos (método GUI)
+
+Este es el método más sencillo y visual:
+
+1. Presiona **Win + R** (abrir "Ejecutar").
+2. Escribe `\\<IP_SERVIDOR>` y presiona Enter.
+3. Windows mostrará un cuadro de diálogo pidiendo **usuario y contraseña**.
+4. Ingresa las credenciales del usuario que deseas probar:
+   - Usuario: `juan` / Contraseña: `Juan2026`
+   - Usuario: `maria` / Contraseña: `Maria2026`
+   - Usuario: `admin` / Contraseña: `Admin2026`
+5. Se abrirá una ventana mostrando los shares disponibles (`publico`, `contabilidad`, `sistemas`, `privado`).
+6. Haz doble clic en la carpeta que deseas abrir.
+
+> **Nota:** El share `[admin]` NO aparecerá en la lista porque tiene `browseable = no`. Para acceder, escribe la ruta completa: `\\<IP_SERVIDOR>\admin`
+
+> **Nota:** Si Windows sigue usando credenciales antiguas, primero desconecta con:
+> ```cmd
+> net use * /delete /yes
+> ```
+
+### Paso 3: Mapear unidades de red (método CMD/PowerShell)
+
+Abre **PowerShell como Administrador** (clic derecho → "Ejecutar como administrador").
+
+#### 3.1. Mapear `/publico` como invitado
+
+```powershell
+# net use <LETRA>: \\<SERVIDOR>\<SHARE> /user:<USUARIO> <CONTRASEÑA>
+net use P: \\<IP_SERVIDOR>\publico /user:guest ""
+```
+
+Verificar:
+```powershell
+dir P:\
+```
+
+#### 3.2. Mapear `/contabilidad` como juan
+
+```powershell
+# NOTA: Cambiar contraseña en producción
+net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
+```
+
+Probar escritura:
+```powershell
+echo "Informe de Juan desde Windows" > K:\informe_windows.txt
+type K:\informe_windows.txt
+```
+
+#### 3.3. Mapear `/sistemas` como maria
+
+```powershell
+# NOTA: Cambiar contraseña en producción
+net use S: \\<IP_SERVIDOR>\sistemas /user:maria Maria2026
+```
+
+#### 3.4. Mapear `/privado` y `/admin` como admin
+
+```powershell
+# NOTA: Cambiar contraseña en producción
+net use V: \\<IP_SERVIDOR>\privado /user:admin Admin2026
+net use A: \\<IP_SERVIDOR>\admin /user:admin Admin2026
+```
+
+#### Letras de unidad asignadas
+
+| Letra | Share | Mnemotecnia |
+|-------|-------|-------------|
+| P: | publico | **P**úblico |
+| K: | contabilidad | **K**ontabilidad |
+| S: | sistemas | **S**istemas |
+| V: | privado | pri**V**ado |
+| A: | admin | **A**dmin |
+
+### Paso 4: Verificar la versión de SMB negociada
+
+```powershell
+# Después de conectarte a un share, ejecuta (como Administrador):
+Get-SmbConnection | Format-Table ServerName, ShareName, Dialect
+```
+
+La columna **Dialect** mostrará la versión de SMB. Debería ser `3.x.x` (SMB 3.0 o superior).
+
+### Paso 5: Desconectar unidades
+
+```powershell
+# Desconectar una unidad específica
+net use P: /delete
+
+# Desconectar TODAS las unidades de red
+net use * /delete /yes
+
+# Ver unidades mapeadas actualmente
+net use
+```
+
+### Paso 6: Mapeo persistente (opcional — sobrevive al reinicio)
+
+Para que las unidades se reconecten automáticamente al iniciar sesión:
+
+```powershell
+# Agregar /persistent:yes al final del comando
+net use P: \\<IP_SERVIDOR>\publico /user:guest "" /persistent:yes
+net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026 /persistent:yes
+```
+
+Windows guardará las credenciales en el **Administrador de credenciales** y reconectará las unidades automáticamente.
+
+### Paso 7: Ejecutar el script automatizado (opcional)
+
+Si prefieres automatizar todo, usa el script PowerShell incluido:
+
+```powershell
+# 1. Abrir PowerShell como Administrador
+# 2. Habilitar ejecución de scripts (solo la primera vez):
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 3. Editar el script y cambiar <IP_SERVIDOR>:
+notepad .\setup_cliente_windows.ps1
+
+# 4. Ejecutar:
+.\setup_cliente_windows.ps1
+```
+
+---
+
 ## Pruebas de Verificación de Perfiles
 
-Estas pruebas demuestran que el modelo RBAC funciona correctamente. Ejecútalas desde el **cliente** (Arch Linux).
+Estas pruebas demuestran que el modelo RBAC funciona correctamente. Ejecútalas desde **cualquiera de los clientes** (Arch Linux o Windows).
+
+> **Nota:** Los comandos de abajo usan `mount.cifs` (Arch Linux). Para hacer las mismas pruebas desde **Windows**, consulta la columna equivalente: en vez de `mount.cifs` usa `net use`, y en vez de `cat`/`echo`/`touch` usa `type`/`echo`/`copy nul`.
 
 ### Prueba 1: Invitado puede leer `/publico` ✓
 
@@ -972,6 +1150,73 @@ echo "<IP_SERVIDOR>  servidor-datacorp" | sudo tee -a /etc/hosts
 
 ---
 
+### Errores comunes en Windows
+
+### Error W1: `Error de sistema 53 — No se encontró la ruta de acceso de red`
+
+**Síntoma:** Al ejecutar `net use`:
+```
+Error de sistema 53 ha ocurrido.
+No se encontró la ruta de acceso de red.
+```
+
+**Solución:**
+1. Verificar que el servidor está accesible:
+   ```powershell
+   ping <IP_SERVIDOR>
+   Test-NetConnection -ComputerName <IP_SERVIDOR> -Port 445
+   ```
+2. Si el ping funciona pero el puerto 445 no, revisa el firewall del servidor.
+
+---
+
+### Error W2: `Error de sistema 5 — Acceso denegado`
+
+**Síntoma:** Windows muestra "Acceso denegado" al intentar mapear un share.
+
+**Causa:** El usuario no tiene permiso para ese share (¡esto es el comportamiento correcto en nuestras pruebas!). O la contraseña es incorrecta.
+
+**Solución:**
+1. Verificar usuario y contraseña.
+2. Limpiar credenciales cacheadas:
+   ```powershell
+   net use * /delete /yes
+   ```
+3. Abrir el **Administrador de credenciales** de Windows (buscar "Credential Manager" en el menú Inicio) y eliminar entradas del servidor DataCorp.
+
+---
+
+### Error W3: Windows usa credenciales antiguas (no pide contraseña)
+
+**Síntoma:** Windows se conecta automáticamente con un usuario anterior y no te deja cambiar.
+
+**Solución:**
+```powershell
+# 1. Desconectar todas las unidades
+net use * /delete /yes
+
+# 2. Limpiar cache de credenciales
+# Abrir: Panel de control → Cuentas de usuario → Administrador de credenciales
+# Eliminar las credenciales de Windows que apunten a <IP_SERVIDOR>
+
+# 3. Reconectar con el usuario deseado
+net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
+```
+
+---
+
+### Nota sobre compatibilidad SMB entre los tres sistemas
+
+| Sistema | Rol | Cliente SMB | Versiones soportadas |
+|---------|-----|-------------|---------------------|
+| Ubuntu 24.04 | Servidor | Samba 4.19+ | SMB2, SMB3 (SMB1 deshabilitado) |
+| Arch Linux | Cliente | cifs-utils | SMB2, SMB3 |
+| Windows 10/11 | Cliente | Nativo | SMB2, SMB3 (SMB1 opcional, deshabilitado por defecto) |
+
+**Todos negocian SMB3 automáticamente.** No debería haber problemas de compatibilidad entre estos tres sistemas. Si por alguna razón falla, forza `vers=3.0` en Linux o verifica con `Get-SmbConnection` en Windows.
+
+---
+
 ## Preguntas Frecuentes para la Exposición
 
 ### P: ¿Por qué usamos Samba y no NFS?
@@ -1016,8 +1261,8 @@ echo "<IP_SERVIDOR>  servidor-datacorp" | sudo tee -a /etc/hosts
 
 ### P: ¿Se puede acceder desde Windows?
 
-**R:** ¡Sí! Windows soporta SMB nativamente. Desde cualquier PC con Windows:
-1. Presiona `Win + R`.
-2. Escribe `\\<IP_SERVIDOR>\publico` y presiona Enter.
-3. Ingresa usuario y contraseña cuando lo solicite.
-Los mismos permisos aplicarán porque Samba es compatible con todos los sistemas operativos.
+**R:** ¡Sí! Y de hecho, en este laboratorio lo hacemos. Windows soporta SMB nativamente (Microsoft inventó el protocolo). El equipo de Daniel (Windows) se conecta al mismo servidor que el de Santiago (Arch Linux), demostrando que Samba permite compartir archivos entre **cualquier sistema operativo**. Desde Windows se accede con `Win + R → \\<IP_SERVIDOR>` o con `net use` en la terminal.
+
+### P: ¿Por qué Windows no necesita instalar nada pero Arch Linux sí?
+
+**R:** Windows incluye el cliente SMB integrado en el sistema operativo desde Windows 95. El Explorador de archivos ya sabe cómo conectarse a shares SMB. En Linux, el soporte SMB/CIFS requiere instalar `cifs-utils` (para montar) y opcionalmente `smbclient` (para explorar). Esto es porque Linux fue diseñado originalmente con NFS como protocolo de red, no SMB.
