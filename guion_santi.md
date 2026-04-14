@@ -92,7 +92,8 @@ sudo mkdir -p /mnt/datacorp/{publico,contabilidad,sistemas,privado,admin}
 **Ejecutar:**
 
 ```bash
-sudo mount.cifs //<IP_SERVIDOR>/publico /mnt/datacorp/publico -o guest,vers=3.0
+sudo mount.cifs //<IP_SERVIDOR>/publico /mnt/datacorp/publico \
+  -o username=invitado,password=Invitado2026,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
 ```
 
 **Decir (explicando las opciones):**
