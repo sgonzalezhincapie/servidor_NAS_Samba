@@ -48,12 +48,12 @@ echo ""
 # PASO 2: ACTUALIZACIÓN DEL SISTEMA
 # ─────────────────────────────────────────────────────────────────────────────
 # Por qué: Antes de instalar paquetes nuevos, actualizamos la lista de paquetes
-# disponibles (apt update) e instalamos las últimas versiones de los que ya
-# tenemos (apt upgrade). Esto previene problemas de dependencias y parches de
-# seguridad faltantes.
-echo "[1/14] Actualizando el sistema..."
-apt update && apt upgrade -y
-echo "    ✓ Sistema actualizado."
+# disponibles (apt update). No hacemos "apt upgrade" porque puede fallar por
+# problemas ajenos a Samba (ej: configuración de GRUB, paquetes de kernel
+# retenidos) y no es necesario para nuestro laboratorio.
+echo "[1/14] Actualizando lista de paquetes..."
+apt update -y
+echo "    ✓ Lista de paquetes actualizada."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 3: INSTALACIÓN DE SAMBA Y HERRAMIENTAS
