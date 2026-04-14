@@ -52,7 +52,7 @@ echo ""
 # problemas ajenos a Samba (ej: configuración de GRUB, paquetes de kernel
 # retenidos) y no es necesario para nuestro laboratorio.
 echo "[1/14] Actualizando lista de paquetes..."
-apt update -y
+apt update -y 2>&1 || true
 echo "    ✓ Lista de paquetes actualizada."
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,8 +64,18 @@ echo "    ✓ Lista de paquetes actualizada."
 #   - smbclient      : herramienta de línea de comandos para probar conexiones SMB
 #   - acl            : herramientas para ACLs extendidas (setfacl, getfacl)
 #   - attr           : herramientas para atributos extendidos en el sistema de archivos
+#
+# NOTA: Usamos "|| true" porque dpkg puede reportar errores de paquetes rotos
+# de kernel (no relacionados con Samba). Verificamos después que Samba se instaló.
 echo "[2/14] Instalando Samba y herramientas..."
-apt install -y samba samba-common smbclient acl attr
+apt install -y samba samba-common smbclient acl attr 2>&1 || true
+
+# Verificar que Samba realmente se instaló (independiente de errores de otros paquetes)
+if ! command -v smbd &>/dev/null; then
+    echo "    ✗ ERROR: Samba no se instaló correctamente."
+    echo "      Intenta manualmente: sudo apt install -y samba"
+    exit 1
+fi
 echo "    ✓ Samba y herramientas instaladas."
 
 # ─────────────────────────────────────────────────────────────────────────────
