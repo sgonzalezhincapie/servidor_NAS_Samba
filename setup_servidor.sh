@@ -139,16 +139,16 @@ echo "[5/14] Creando usuarios del sistema..."
 id admin &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin admin
 echo "    Creado usuario: admin"
 
-id juan &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin juan
-echo "    Creado usuario: juan"
+id Dani &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin Dani
+echo "    Creado usuario: Dani"
 
-id maria &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin maria
-echo "    Creado usuario: maria"
+id Santi &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin Santi
+echo "    Creado usuario: Santi"
 
 id invitado &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin invitado
 echo "    Creado usuario: invitado"
 
-echo "    ✓ Usuarios creados: admin, juan, maria, invitado"
+echo "    ✓ Usuarios creados: admin, Dani, Santi, invitado"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 7: ASIGNACIÓN DE USUARIOS A GRUPOS
@@ -163,17 +163,17 @@ echo "[6/14] Asignando usuarios a grupos..."
 usermod -aG administradores admin
 echo "    admin → administradores"
 
-# juan → miembro de: usuarios, contabilidad
-# Por qué: juan es un empleado del departamento de contabilidad.
-usermod -aG usuarios juan
-usermod -aG contabilidad juan
-echo "    juan → usuarios, contabilidad"
+# Dani → miembro de: usuarios, contabilidad
+# Por qué: Dani es un empleado del departamento de contabilidad.
+usermod -aG usuarios Dani
+usermod -aG contabilidad Dani
+echo "    Dani → usuarios, contabilidad"
 
-# maria → miembro de: usuarios, sistemas
-# Por qué: maria es una empleada del departamento de sistemas.
-usermod -aG usuarios maria
-usermod -aG sistemas maria
-echo "    maria → usuarios, sistemas"
+# Santi → miembro de: usuarios, sistemas
+# Por qué: Santi es un empleado del departamento de sistemas.
+usermod -aG usuarios Santi
+usermod -aG sistemas Santi
+echo "    Santi → usuarios, sistemas"
 
 # invitado → miembro de: invitados
 # Por qué: los invitados solo tienen acceso de lectura a /publico.
@@ -360,12 +360,12 @@ echo "[10/14] Creando usuarios en Samba..."
 echo "    Usuario Samba creado: admin (contraseña: Admin2026)"
 
 # NOTA: Cambiar en producción
-(echo "Juan2026"; echo "Juan2026") | smbpasswd -s -a juan
-echo "    Usuario Samba creado: juan (contraseña: Juan2026)"
+(echo "Dani2026"; echo "Dani2026") | smbpasswd -s -a Dani
+echo "    Usuario Samba creado: Dani (contraseña: Dani2026)"
 
 # NOTA: Cambiar en producción
-(echo "Maria2026"; echo "Maria2026") | smbpasswd -s -a maria
-echo "    Usuario Samba creado: maria (contraseña: Maria2026)"
+(echo "Santi2026"; echo "Santi2026") | smbpasswd -s -a Santi
+echo "    Usuario Samba creado: Santi (contraseña: Santi2026)"
 
 # NOTA: Cambiar en producción
 (echo "Invitado2026"; echo "Invitado2026") | smbpasswd -s -a invitado
@@ -373,8 +373,8 @@ echo "    Usuario Samba creado: invitado (contraseña: Invitado2026)"
 
 # Por qué: Habilitamos cada usuario para que pueda autenticarse en Samba.
 smbpasswd -e admin
-smbpasswd -e juan
-smbpasswd -e maria
+smbpasswd -e Dani
+smbpasswd -e Santi
 smbpasswd -e invitado
 
 echo "    ✓ Usuarios Samba creados y habilitados."
@@ -383,8 +383,8 @@ echo "    ┌──────────────────────�
 echo "    │  CONTRASEÑAS DE EJEMPLO (CAMBIAR EN PROD.)   │"
 echo "    ├──────────────┬───────────────────────────────┤"
 echo "    │ admin        │ Admin2026                     │"
-echo "    │ juan         │ Juan2026                      │"
-echo "    │ maria        │ Maria2026                     │"
+echo "    │ Dani         │ Dani2026                      │"
+echo "    │ Santi        │ Santi2026                     │"
 echo "    │ invitado     │ Invitado2026                  │"
 echo "    └──────────────┴───────────────────────────────┘"
 echo ""
@@ -532,7 +532,7 @@ echo "   ✓ Samba instalado ($(smbd --version))"
 echo "   ✓ Estructura de directorios creada en /srv/datacorp/"
 echo "   ✓ 5 grupos creados: administradores, usuarios, invitados,"
 echo "     contabilidad, sistemas"
-echo "   ✓ 4 usuarios creados: admin, juan, maria, invitado"
+echo "   ✓ 4 usuarios creados: admin, Dani, Santi, invitado"
 echo "   ✓ Permisos POSIX y ACLs configurados"
 echo "   ✓ Usuarios registrados en Samba"
 echo "   ✓ Servicios smbd y nmbd activos y habilitados"

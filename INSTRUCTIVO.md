@@ -108,13 +108,13 @@ El servidor crea estos **usuarios Samba** (no confundir con los integrantes del 
 | Usuario Samba | Contraseña | Grupos | Acceso a shares |
 |---------------|------------|--------|-----------------|
 | `admin` | `Admin2026` | `administradores` | **Todo**: publico (R+W), contabilidad (R+W), sistemas (R+W), privado (R+W), admin (R+W) |
-| `juan` | `Juan2026` | `usuarios`, `contabilidad` | publico (R), contabilidad (R+W). **Sin acceso** a: sistemas, privado, admin |
-| `maria` | `Maria2026` | `usuarios`, `sistemas` | publico (R), sistemas (R+W). **Sin acceso** a: contabilidad, privado, admin |
+| `dani` | `Dani2026` | `usuarios`, `contabilidad` | publico (R), contabilidad (R+W). **Sin acceso** a: sistemas, privado, admin |
+| `santi` | `Santi2026` | `usuarios`, `sistemas` | publico (R), sistemas (R+W). **Sin acceso** a: contabilidad, privado, admin |
 | `invitado` | *(sin contraseña)* | `invitados` | publico (R). **Sin acceso** a todo lo demás |
 
 **R** = solo lectura | **R+W** = lectura y escritura
 
-> **Cualquier integrante puede usar cualquier usuario** desde su equipo. Por ejemplo, Daniel (Windows) puede probar conectándose como `juan`, `maria` o `admin` para verificar que los permisos funcionan. Lo mismo Santiago desde Arch Linux.
+> **Cualquier integrante puede usar cualquier usuario** desde su equipo. Por ejemplo, Daniel (Windows) puede probar conectándose como `dani`, `santi` o `admin` para verificar que los permisos funcionan. Lo mismo Santiago desde Arch Linux.
 
 ### Orden de ejecución recomendado
 
@@ -489,16 +489,16 @@ Esto significa:
 ```bash
 # Verificar la pertenencia de usuarios a grupos
 groups admin
-groups juan
-groups maria
+groups dani
+groups santi
 groups invitado
 ```
 
 Salida esperada:
 ```
 admin : admin administradores
-juan : juan usuarios contabilidad
-maria : maria usuarios sistemas
+dani : dani usuarios contabilidad
+santi : santi usuarios sistemas
 invitado : invitado invitados
 ```
 
@@ -601,27 +601,27 @@ Verificar:
 ls -la /mnt/datacorp/publico
 ```
 
-#### 3.3. Montar como juan (/contabilidad)
+#### 3.3. Montar como dani (/contabilidad)
 
 ```bash
 # NOTA: Cambiar contraseña en producción
 sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
-  -o username=juan,password=Juan2026,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
+  -o username=dani,password=Dani2026,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
 ```
 
 > **Alternativa más segura** (pide la contraseña interactivamente):
 > ```bash
 > sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
->   -o username=juan,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
-> # Te pedirá: Password for juan@//<IP_SERVIDOR>/contabilidad:
+>   -o username=dani,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
+> # Te pedirá: Password for dani@//<IP_SERVIDOR>/contabilidad:
 > ```
 
-#### 3.4. Montar como maria (/sistemas)
+#### 3.4. Montar como santi (/sistemas)
 
 ```bash
 # NOTA: Cambiar contraseña en producción
 sudo mount.cifs //<IP_SERVIDOR>/sistemas /mnt/datacorp/sistemas \
-  -o username=maria,password=Maria2026,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
+  -o username=santi,password=Santi2026,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
 ```
 
 #### 3.5. Montar como admin (/privado y /admin)
@@ -672,9 +672,9 @@ sudo umount /mnt/datacorp/admin 2>/dev/null
 Se puede probar el acceso directamente desde `smbclient` sin necesidad de montar:
 
 ```bash
-# Conectarse como juan al share de contabilidad
-smbclient //<IP_SERVIDOR>/contabilidad -U juan
-# Contraseña: Juan2026
+# Conectarse como dani al share de contabilidad
+smbclient //<IP_SERVIDOR>/contabilidad -U dani
+# Contraseña: Dani2026
 # Dentro de smbclient, puedes usar:
 #   ls           → listar archivos
 #   put archivo  → subir un archivo
@@ -684,15 +684,15 @@ smbclient //<IP_SERVIDOR>/contabilidad -U juan
 ```
 
 ```bash
-# Conectarse como maria al share de sistemas
-smbclient //<IP_SERVIDOR>/sistemas -U maria
-# Contraseña: Maria2026
+# Conectarse como santi al share de sistemas
+smbclient //<IP_SERVIDOR>/sistemas -U santi
+# Contraseña: Santi2026
 ```
 
 ```bash
-# Intentar conectarse como juan al share privado (debería fallar)
-smbclient //<IP_SERVIDOR>/privado -U juan
-# Contraseña: Juan2026
+# Intentar conectarse como dani al share privado (debería fallar)
+smbclient //<IP_SERVIDOR>/privado -U dani
+# Contraseña: Dani2026
 # Resultado esperado: NT_STATUS_ACCESS_DENIED
 ```
 
@@ -728,8 +728,8 @@ Este es el método más sencillo y visual:
 2. Escribe `\\<IP_SERVIDOR>` y presiona Enter.
 3. Windows mostrará un cuadro de diálogo pidiendo **usuario y contraseña**.
 4. Ingresa las credenciales del usuario que deseas probar:
-   - Usuario: `juan` / Contraseña: `Juan2026`
-   - Usuario: `maria` / Contraseña: `Maria2026`
+   - Usuario: `dani` / Contraseña: `Dani2026`
+   - Usuario: `santi` / Contraseña: `Santi2026`
    - Usuario: `admin` / Contraseña: `Admin2026`
 5. Se abrirá una ventana mostrando los shares disponibles (`publico`, `contabilidad`, `sistemas`, `privado`).
 6. Haz doble clic en la carpeta que deseas abrir.
@@ -757,24 +757,24 @@ Verificar:
 dir P:\
 ```
 
-#### 3.2. Mapear `/contabilidad` como juan
+#### 3.2. Mapear `/contabilidad` como dani
 
 ```powershell
 # NOTA: Cambiar contraseña en producción
-net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
+net use K: \\<IP_SERVIDOR>\contabilidad /user:dani Dani2026
 ```
 
 Probar escritura:
 ```powershell
-echo "Informe de Juan desde Windows" > K:\informe_windows.txt
+echo "Informe de Dani desde Windows" > K:\informe_windows.txt
 type K:\informe_windows.txt
 ```
 
-#### 3.3. Mapear `/sistemas` como maria
+#### 3.3. Mapear `/sistemas` como santi
 
 ```powershell
 # NOTA: Cambiar contraseña en producción
-net use S: \\<IP_SERVIDOR>\sistemas /user:maria Maria2026
+net use S: \\<IP_SERVIDOR>\sistemas /user:santi Santi2026
 ```
 
 #### 3.4. Mapear `/privado` y `/admin` como admin
@@ -824,7 +824,7 @@ Para que las unidades se reconecten automáticamente al iniciar sesión:
 ```powershell
 # Agregar /persistent:yes al final del comando
 net use P: \\<IP_SERVIDOR>\publico /user:guest "" /persistent:yes
-net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026 /persistent:yes
+net use K: \\<IP_SERVIDOR>\contabilidad /user:dani Dani2026 /persistent:yes
 ```
 
 Windows guardará las credenciales en el **Administrador de credenciales** y reconectará las unidades automáticamente.
@@ -873,12 +873,12 @@ touch /mnt/datacorp/publico/intruso.txt
 # Resultado esperado: "Permission denied" ✗ (¡correcto! no debería poder)
 ```
 
-### Prueba 3: Juan puede escribir en `/contabilidad` ✓
+### Prueba 3: Dani puede escribir en `/contabilidad` ✓
 
 ```bash
-# Montar contabilidad como juan:
+# Montar contabilidad como dani:
 sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
-  -o username=juan,password=Juan2026,vers=3.0,uid=$(id -u),gid=$(id -g)
+  -o username=dani,password=Dani2026,vers=3.0,uid=$(id -u),gid=$(id -g)
 
 # Crear un archivo:
 echo "Informe financiero Q1 2026" > /mnt/datacorp/contabilidad/informe_q1.txt
@@ -886,12 +886,12 @@ cat /mnt/datacorp/contabilidad/informe_q1.txt
 # Resultado esperado: "Informe financiero Q1 2026" ✓
 ```
 
-### Prueba 4: Juan NO puede acceder a `/privado` ✗
+### Prueba 4: Dani NO puede acceder a `/privado` ✗
 
 ```bash
-# Intentar montar /privado como juan:
+# Intentar montar /privado como dani:
 sudo mount.cifs //<IP_SERVIDOR>/privado /mnt/datacorp/privado \
-  -o username=juan,password=Juan2026,vers=3.0
+  -o username=dani,password=Dani2026,vers=3.0
 # Resultado esperado: mount error(13): Permission denied ✗ (¡correcto!)
 ```
 
@@ -916,28 +916,28 @@ echo "Configuración del sistema" > /mnt/datacorp/admin/config_backup.txt
 # Resultado esperado: archivo creado sin error ✓
 ```
 
-### Prueba 6: Juan NO puede acceder a `/sistemas` (no es su departamento)
+### Prueba 6: Dani NO puede acceder a `/sistemas` (no es su departamento)
 
 ```bash
-# Intentar montar /sistemas como juan:
+# Intentar montar /sistemas como dani:
 sudo mount.cifs //<IP_SERVIDOR>/sistemas /mnt/datacorp/sistemas \
-  -o username=juan,password=Juan2026,vers=3.0
+  -o username=dani,password=Dani2026,vers=3.0
 # Resultado esperado: mount error(13): Permission denied ✗ (¡correcto!)
-# Juan pertenece a "contabilidad", no a "sistemas"
+# Dani pertenece a "contabilidad", no a "sistemas"
 ```
 
-### Prueba 7: Maria puede escribir en `/sistemas` pero NO en `/contabilidad`
+### Prueba 7: Santi puede escribir en `/sistemas` pero NO en `/contabilidad`
 
 ```bash
-# Maria puede acceder a /sistemas:
+# Santi puede acceder a /sistemas:
 sudo mount.cifs //<IP_SERVIDOR>/sistemas /mnt/datacorp/sistemas \
-  -o username=maria,password=Maria2026,vers=3.0,uid=$(id -u),gid=$(id -g)
+  -o username=santi,password=Santi2026,vers=3.0,uid=$(id -u),gid=$(id -g)
 echo "Reporte de red" > /mnt/datacorp/sistemas/reporte_red.txt
 # Resultado esperado: archivo creado ✓
 
-# Maria NO puede acceder a /contabilidad:
+# Santi NO puede acceder a /contabilidad:
 sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
-  -o username=maria,password=Maria2026,vers=3.0
+  -o username=santi,password=Santi2026,vers=3.0
 # Resultado esperado: mount error(13): Permission denied ✗ (¡correcto!)
 ```
 
@@ -947,11 +947,11 @@ sudo mount.cifs //<IP_SERVIDOR>/contabilidad /mnt/datacorp/contabilidad \
 |---|--------|----------|-----------|
 | 1 | Invitado lee `/publico` | ✓ Puede | |
 | 2 | Invitado escribe `/publico` | ✗ No puede | |
-| 3 | Juan escribe `/contabilidad` | ✓ Puede | |
-| 4 | Juan accede `/privado` | ✗ No puede | |
+| 3 | Dani escribe `/contabilidad` | ✓ Puede | |
+| 4 | Dani accede `/privado` | ✗ No puede | |
 | 5 | Admin accede a todo | ✓ Puede | |
-| 6 | Juan accede `/sistemas` | ✗ No puede | |
-| 7 | Maria escribe `/sistemas`, no `/contabilidad` | ✓/✗ | |
+| 6 | Dani accede `/sistemas` | ✗ No puede | |
+| 7 | Santi escribe `/sistemas`, no `/contabilidad` | ✓/✗ | |
 
 > **Llena la columna "Resultado" durante la exposición para demostrar en vivo.**
 
@@ -968,7 +968,7 @@ Esta sección explica cómo **Manuela (administradora del servidor Ubuntu)** pue
 sudo pdbedit -L
 
 # Ver a qué grupos pertenece cada usuario
-groups admin juan maria invitado
+groups admin dani santi invitado
 
 # Ver las ACLs actuales de cada carpeta
 getfacl /srv/datacorp/publico
@@ -980,34 +980,34 @@ getfacl /srv/datacorp/admin
 
 ### Caso 1: Dar acceso a un usuario a un departamento que no le corresponde
 
-Ejemplo: Permitir que **juan** (contabilidad) también acceda a **sistemas**.
+Ejemplo: Permitir que **dani** (contabilidad) también acceda a **sistemas**.
 
 ```bash
-# 1. Agregar a juan al grupo "sistemas" en Linux
-sudo usermod -aG sistemas juan
+# 1. Agregar a dani al grupo "sistemas" en Linux
+sudo usermod -aG sistemas dani
 
-# 2. Agregar a juan en la directiva "valid users" de [sistemas] en smb.conf
+# 2. Agregar a dani en la directiva "valid users" de [sistemas] en smb.conf
 sudo nano /etc/samba/smb.conf
 # Busca la sección [sistemas] y cambia:
 #   valid users = @sistemas @administradores
 # por:
-#   valid users = @sistemas @administradores juan
+#   valid users = @sistemas @administradores dani
 
 # 3. Reiniciar Samba para que tome los cambios
 sudo systemctl restart smbd
 
-# 4. Verificar que juan ahora está en el grupo
-groups juan
-# Salida esperada: juan : juan usuarios contabilidad sistemas
+# 4. Verificar que dani ahora está en el grupo
+groups dani
+# Salida esperada: dani : dani usuarios contabilidad sistemas
 ```
 
 **Desde Arch Linux (Santiago)** — Para probar el cambio:
 ```bash
 # Desmontar si ya estaba montado
 sudo umount /mnt/datacorp/sistemas 2>/dev/null
-# Montar como juan (ahora debería funcionar)
+# Montar como dani (ahora debería funcionar)
 sudo mount.cifs //<IP_SERVIDOR>/sistemas /mnt/datacorp/sistemas \
-  -o username=juan,password=Juan2026,vers=3.0,uid=$(id -u),gid=$(id -g)
+  -o username=dani,password=Dani2026,vers=3.0,uid=$(id -u),gid=$(id -g)
 ls /mnt/datacorp/sistemas
 ```
 
@@ -1015,18 +1015,18 @@ ls /mnt/datacorp/sistemas
 ```powershell
 # Limpiar conexiones anteriores
 net use S: /delete 2>$null
-# Reconectar como juan
-net use S: \\<IP_SERVIDOR>\sistemas /user:juan Juan2026
+# Reconectar como dani
+net use S: \\<IP_SERVIDOR>\sistemas /user:dani Dani2026
 dir S:\
 ```
 
 ### Caso 2: Quitar acceso a un usuario
 
-Ejemplo: Revocar el acceso de **juan** a **contabilidad**.
+Ejemplo: Revocar el acceso de **dani** a **contabilidad**.
 
 ```bash
-# 1. Quitar a juan del grupo "contabilidad" en Linux
-sudo gpasswd -d juan contabilidad
+# 1. Quitar a dani del grupo "contabilidad" en Linux
+sudo gpasswd -d dani contabilidad
 
 # 2. (Opcional) También quitarlo del valid users en smb.conf si estaba explícito
 sudo nano /etc/samba/smb.conf
@@ -1035,11 +1035,11 @@ sudo nano /etc/samba/smb.conf
 sudo systemctl restart smbd
 
 # 4. Verificar
-groups juan
-# juan ya no aparece en el grupo "contabilidad"
+groups dani
+# dani ya no aparece en el grupo "contabilidad"
 ```
 
-Desde los clientes: al intentar acceder a `/contabilidad` como juan, ahora recibirán `NT_STATUS_ACCESS_DENIED` o `Permission denied`.
+Desde los clientes: al intentar acceder a `/contabilidad` como dani, ahora recibirán `NT_STATUS_ACCESS_DENIED` o `Permission denied`.
 
 ### Caso 3: Crear un usuario nuevo
 
@@ -1072,7 +1072,7 @@ Ahora los clientes pueden conectarse como `pedro` con la contraseña que se conf
 
 ### Caso 4: Cambiar permisos de una carpeta (lectura ↔ escritura)
 
-Ejemplo: Hacer que **usuarios** (juan, maria) puedan **escribir** en `/publico` (actualmente solo lectura).
+Ejemplo: Hacer que **usuarios** (dani, santi) puedan **escribir** en `/publico` (actualmente solo lectura).
 
 ```bash
 # Opción A: Cambiar ACL del sistema de archivos
@@ -1102,10 +1102,10 @@ sudo systemctl restart smbd
 
 ```bash
 # Deshabilitar (el usuario no puede conectarse pero no se borra)
-sudo smbpasswd -d juan
+sudo smbpasswd -d dani
 
 # Habilitar de nuevo
-sudo smbpasswd -e juan
+sudo smbpasswd -e dani
 ```
 
 ### Caso 6: Verificar quién está conectado en este momento
@@ -1344,7 +1344,7 @@ net use * /delete /yes
 # Eliminar las credenciales de Windows que apunten a <IP_SERVIDOR>
 
 # 3. Reconectar con el usuario deseado
-net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
+net use K: \\<IP_SERVIDOR>\contabilidad /user:dani Dani2026
 ```
 
 ---
@@ -1381,7 +1381,7 @@ net use K: \\<IP_SERVIDOR>\contabilidad /user:juan Juan2026
 
 ### P: ¿Qué es el SGID bit (chmod 2770)?
 
-**R:** El bit SGID (Set Group ID) en un directorio hace que todos los archivos creados dentro **hereden automáticamente el grupo del directorio**, no el grupo principal del usuario que los crea. Ejemplo: si juan crea un archivo en `/departamentos/contabilidad/` (que tiene SGID y grupo `contabilidad`), el archivo pertenecerá al grupo `contabilidad`, no al grupo personal de juan. Esto es esencial para que todos los del departamento puedan acceder a los archivos de los demás.
+**R:** El bit SGID (Set Group ID) en un directorio hace que todos los archivos creados dentro **hereden automáticamente el grupo del directorio**, no el grupo principal del usuario que los crea. Ejemplo: si dani crea un archivo en `/departamentos/contabilidad/` (que tiene SGID y grupo `contabilidad`), el archivo pertenecerá al grupo `contabilidad`, no al grupo personal de dani. Esto es esencial para que todos los del departamento puedan acceder a los archivos de los demás.
 
 ### P: ¿Qué pasa si el servidor se apaga?
 

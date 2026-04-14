@@ -170,7 +170,7 @@ echo ""
 
 # ─── Verificar que los usuarios existen ───
 echo -e "${AZUL}── Verificación previa: usuarios y grupos ──${RESET}"
-for USER in admin juan maria invitado; do
+for USER in admin dani santi invitado; do
     if id "$USER" &>/dev/null; then
         echo -e "  ${VERDE}✓${RESET} Usuario '$USER' existe: $(groups $USER 2>/dev/null)"
     else
@@ -211,39 +211,39 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 # PRUEBAS DE JUAN (usuarios + contabilidad)
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${AZUL}── Pruebas para: juan (grupos: usuarios, contabilidad) ──${RESET}"
-echo "   juan puede: leer /publico, R+W en /contabilidad."
-echo "   juan NO puede: escribir en /publico, acceder a /sistemas, /privado, /admin."
+echo -e "${AZUL}── Pruebas para: dani (grupos: usuarios, contabilidad) ──${RESET}"
+echo "   dani puede: leer /publico, R+W en /contabilidad."
+echo "   dani NO puede: escribir en /publico, acceder a /sistemas, /privado, /admin."
 echo ""
-test_read  "juan" "$DIR_PUBLICO"        "should_pass"
-test_write "juan" "$DIR_PUBLICO"        "should_fail"
-test_read  "juan" "$DIR_CONTABILIDAD"   "should_pass"
-test_write "juan" "$DIR_CONTABILIDAD"   "should_pass"
-test_read  "juan" "$DIR_SISTEMAS"       "should_fail"
-test_write "juan" "$DIR_SISTEMAS"       "should_fail"
-test_read  "juan" "$DIR_PRIVADO"        "should_fail"
-test_write "juan" "$DIR_PRIVADO"        "should_fail"
-test_read  "juan" "$DIR_ADMIN"          "should_fail"
-test_write "juan" "$DIR_ADMIN"          "should_fail"
+test_read  "dani" "$DIR_PUBLICO"        "should_pass"
+test_write "dani" "$DIR_PUBLICO"        "should_fail"
+test_read  "dani" "$DIR_CONTABILIDAD"   "should_pass"
+test_write "dani" "$DIR_CONTABILIDAD"   "should_pass"
+test_read  "dani" "$DIR_SISTEMAS"       "should_fail"
+test_write "dani" "$DIR_SISTEMAS"       "should_fail"
+test_read  "dani" "$DIR_PRIVADO"        "should_fail"
+test_write "dani" "$DIR_PRIVADO"        "should_fail"
+test_read  "dani" "$DIR_ADMIN"          "should_fail"
+test_write "dani" "$DIR_ADMIN"          "should_fail"
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PRUEBAS DE MARIA (usuarios + sistemas)
 # ─────────────────────────────────────────────────────────────────────────────
-echo -e "${AZUL}── Pruebas para: maria (grupos: usuarios, sistemas) ──${RESET}"
-echo "   maria puede: leer /publico, R+W en /sistemas."
-echo "   maria NO puede: escribir en /publico, acceder a /contabilidad, /privado, /admin."
+echo -e "${AZUL}── Pruebas para: santi (grupos: usuarios, sistemas) ──${RESET}"
+echo "   santi puede: leer /publico, R+W en /sistemas."
+echo "   santi NO puede: escribir en /publico, acceder a /contabilidad, /privado, /admin."
 echo ""
-test_read  "maria" "$DIR_PUBLICO"       "should_pass"
-test_write "maria" "$DIR_PUBLICO"       "should_fail"
-test_read  "maria" "$DIR_CONTABILIDAD"  "should_fail"
-test_write "maria" "$DIR_CONTABILIDAD"  "should_fail"
-test_read  "maria" "$DIR_SISTEMAS"      "should_pass"
-test_write "maria" "$DIR_SISTEMAS"      "should_pass"
-test_read  "maria" "$DIR_PRIVADO"       "should_fail"
-test_write "maria" "$DIR_PRIVADO"       "should_fail"
-test_read  "maria" "$DIR_ADMIN"         "should_fail"
-test_write "maria" "$DIR_ADMIN"         "should_fail"
+test_read  "santi" "$DIR_PUBLICO"       "should_pass"
+test_write "santi" "$DIR_PUBLICO"       "should_fail"
+test_read  "santi" "$DIR_CONTABILIDAD"  "should_fail"
+test_write "santi" "$DIR_CONTABILIDAD"  "should_fail"
+test_read  "santi" "$DIR_SISTEMAS"      "should_pass"
+test_write "santi" "$DIR_SISTEMAS"      "should_pass"
+test_read  "santi" "$DIR_PRIVADO"       "should_fail"
+test_write "santi" "$DIR_PRIVADO"       "should_fail"
+test_read  "santi" "$DIR_ADMIN"         "should_fail"
+test_write "santi" "$DIR_ADMIN"         "should_fail"
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────

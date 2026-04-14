@@ -25,7 +25,8 @@ set -e
 # VARIABLE DE CONFIGURACIÓN — MODIFICAR ANTES DE EJECUTAR
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
-IP_SERVIDOR="<IP_SERVIDOR>"
+IP_SERVIDOR="10.253.45.194"
+#IP_SERVIDOR="<IP_SERVIDOR>"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 0: COMPROBACIONES INICIALES
@@ -41,7 +42,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Por qué: Verificamos que el usuario haya reemplazado el placeholder
-if [ "$IP_SERVIDOR" = "<IP_SERVIDOR>" ]; then
+if [ "$IP_SERVIDOR" = "10.253.45.194" ]; then
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║  ERROR: Debes configurar la IP del servidor.             ║"
     echo "║                                                          ║"
@@ -212,49 +213,49 @@ mount.cifs "//$IP_SERVIDOR/publico" /mnt/datacorp/publico \
     || echo "    ✗ Error al montar /publico. Verifica la IP y que Samba esté corriendo."
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MONTAJE COMO JUAN (departamento de contabilidad)
+# MONTAJE COMO DANI (departamento de contabilidad)
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "┌───────────────────────────────────────────────────────┐"
-echo "│  MONTAJE COMO JUAN (contabilidad)                     │"
+echo "│  MONTAJE COMO DANI (contabilidad)                     │"
 echo "├───────────────────────────────────────────────────────┤"
 echo "│                                                       │"
-echo "│  # Montar /contabilidad como juan:                    │"
+echo "│  # Montar /contabilidad como Dani:                    │"
 echo "│  mount.cifs //$IP_SERVIDOR/contabilidad \\             │"
 echo "│    /mnt/datacorp/contabilidad \\                       │"
-echo "│    -o username=juan,password=Juan2026,\\               │"
+echo "│    -o username=Dani,password=Dani2026,\\               │"
 echo "│       vers=3.0,uid=1000,gid=1000,iocharset=utf8      │"
 echo "│                                                       │"
 echo "│  # Verificar:                                         │"
 echo "│  ls -la /mnt/datacorp/contabilidad                    │"
 echo "│                                                       │"
 echo "│  # Probar escritura (debería funcionar):              │"
-echo "│  echo 'Prueba de Juan' > \\                           │"
-echo "│    /mnt/datacorp/contabilidad/archivo_juan.txt        │"
+echo "│  echo 'Prueba de Dani' > \\                           │"
+echo "│    /mnt/datacorp/contabilidad/archivo_dani.txt        │"
 echo "│                                                       │"
 echo "│  # NOTA: Cambiar contraseña en producción             │"
 echo "└───────────────────────────────────────────────────────┘"
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MONTAJE COMO MARIA (departamento de sistemas)
+# MONTAJE COMO SANTI (departamento de sistemas)
 # ─────────────────────────────────────────────────────────────────────────────
 echo "┌───────────────────────────────────────────────────────┐"
-echo "│  MONTAJE COMO MARIA (sistemas)                        │"
+echo "│  MONTAJE COMO SANTI (sistemas)                        │"
 echo "├───────────────────────────────────────────────────────┤"
 echo "│                                                       │"
-echo "│  # Montar /sistemas como maria:                       │"
+echo "│  # Montar /sistemas como Santi:                       │"
 echo "│  mount.cifs //$IP_SERVIDOR/sistemas \\                 │"
 echo "│    /mnt/datacorp/sistemas \\                           │"
-echo "│    -o username=maria,password=Maria2026,\\             │"
+echo "│    -o username=Santi,password=Santi2026,\\             │"
 echo "│       vers=3.0,uid=1000,gid=1000,iocharset=utf8      │"
 echo "│                                                       │"
 echo "│  # Verificar:                                         │"
 echo "│  ls -la /mnt/datacorp/sistemas                        │"
 echo "│                                                       │"
 echo "│  # Probar escritura (debería funcionar):              │"
-echo "│  echo 'Prueba de Maria' > \\                          │"
-echo "│    /mnt/datacorp/sistemas/archivo_maria.txt           │"
+echo "│  echo 'Prueba de Santi' > \\                          │"
+echo "│    /mnt/datacorp/sistemas/archivo_santi.txt           │"
 echo "│                                                       │"
 echo "│  # NOTA: Cambiar contraseña en producción             │"
 echo "└───────────────────────────────────────────────────────┘"
@@ -330,46 +331,46 @@ echo "│                                                       │"
 echo "│  # Crear directorio para credenciales:                │"
 echo "│  sudo mkdir -p /etc/samba                             │"
 echo "│                                                       │"
-echo "│  # Crear archivo para juan:                           │"
-echo "│  sudo tee /etc/samba/credentials_juan > /dev/null <<EOF│"
-echo "│  username=juan                                        │"
-echo "│  password=Juan2026                                    │"
+echo "│  # Crear archivo para Dani:                           │"
+echo "│  sudo tee /etc/samba/credentials_dani > /dev/null <<EOF│"
+echo "│  username=Dani                                        │"
+echo "│  password=Dani2026                                    │"
 echo "│  domain=DATACORP                                      │"
 echo "│  EOF                                                  │"
 echo "│                                                       │"
 echo "│  # Proteger el archivo (solo root puede leerlo):      │"
-echo "│  sudo chmod 600 /etc/samba/credentials_juan           │"
+echo "│  sudo chmod 600 /etc/samba/credentials_dani           │"
 echo "│                                                       │"
 echo "│  # Para otros usuarios, crear archivos similares:     │"
-echo "│  # /etc/samba/credentials_maria                       │"
+echo "│  # /etc/samba/credentials_santi                       │"
 echo "│  # /etc/samba/credentials_admin                       │"
 echo "└───────────────────────────────────────────────────────┘"
 echo ""
 
 # Por qué: Creamos el archivo de credenciales de ejemplo automáticamente
-echo "  → Creando archivo de credenciales de ejemplo para juan..."
+echo "  → Creando archivo de credenciales de ejemplo para Dani..."
 mkdir -p /etc/samba
 
 # NOTA: Cambiar en producción
-cat > /etc/samba/credentials_juan <<EOF
-username=juan
-password=Juan2026
+cat > /etc/samba/credentials_dani <<EOF
+username=dani
+password=Dani2026
 domain=DATACORP
 EOF
 
 # Por qué: chmod 600 = solo root puede leer y escribir este archivo.
 # Esto evita que otros usuarios del sistema vean la contraseña.
-chmod 600 /etc/samba/credentials_juan
-echo "    ✓ /etc/samba/credentials_juan creado (permisos: 600)"
+chmod 600 /etc/samba/credentials_dani
+echo "    ✓ /etc/samba/credentials_dani creado (permisos: 600)"
 
-# Crear también para maria y admin
-cat > /etc/samba/credentials_maria <<EOF
-username=maria
-password=Maria2026
+# Crear también para santi y admin
+cat > /etc/samba/credentials_santi <<EOF
+username=santi
+password=Santi2026
 domain=DATACORP
 EOF
-chmod 600 /etc/samba/credentials_maria
-echo "    ✓ /etc/samba/credentials_maria creado"
+chmod 600 /etc/samba/credentials_santi
+echo "    ✓ /etc/samba/credentials_santi creado"
 
 cat > /etc/samba/credentials_admin <<EOF
 username=admin
@@ -392,7 +393,7 @@ echo "│  (sudo nano /etc/fstab)                               │"
 echo "│                                                       │"
 echo "│  # DataCorp NAS - Montajes automáticos                │"
 echo "│  //$IP_SERVIDOR/publico  /mnt/datacorp/publico  cifs  guest,vers=3.0,uid=1000,gid=1000,iocharset=utf8,_netdev,nofail  0  0"
-echo "│  //$IP_SERVIDOR/contabilidad  /mnt/datacorp/contabilidad  cifs  credentials=/etc/samba/credentials_juan,vers=3.0,uid=1000,gid=1000,iocharset=utf8,_netdev,nofail  0  0"
+echo "│  //$IP_SERVIDOR/contabilidad  /mnt/datacorp/contabilidad  cifs  credentials=/etc/samba/credentials_dani,vers=3.0,uid=1000,gid=1000,iocharset=utf8,_netdev,nofail  0  0"
 echo "│                                                       │"
 echo "│  OPCIONES IMPORTANTES:                                │"
 echo "│  _netdev = esperar a que la red esté disponible       │"
@@ -447,7 +448,7 @@ echo "  3. Verifica que los permisos funcionan según la matriz"
 echo ""
 echo "  Para probar rápidamente con smbclient (sin montar):"
 echo "    smbclient //$IP_SERVIDOR/publico -N"
-echo "    smbclient //$IP_SERVIDOR/contabilidad -U juan"
-echo "    smbclient //$IP_SERVIDOR/sistemas -U maria"
+echo "    smbclient //$IP_SERVIDOR/contabilidad -U dani"
+echo "    smbclient //$IP_SERVIDOR/sistemas -U santi"
 echo "    smbclient //$IP_SERVIDOR/privado -U admin"
 echo "═══════════════════════════════════════════════════════════"

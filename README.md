@@ -75,8 +75,8 @@ sudo bash setup_cliente_arch.sh
 | Usuario | Contraseña | Grupos | Acceso |
 |---------|-----------|--------|--------|
 | admin | Admin2026 | administradores | Total |
-| juan | Juan2026 | usuarios, contabilidad | publico (R), contabilidad (R+W) |
-| maria | Maria2026 | usuarios, sistemas | publico (R), sistemas (R+W) |
+| dani | Dani2026 | usuarios, contabilidad | publico (R), contabilidad (R+W) |
+| santi | Santi2026 | usuarios, sistemas | publico (R), sistemas (R+W) |
 | invitado | Invitado2026 | invitados | publico (R) |
 
 > **NOTA:** Contraseñas de ejemplo. Cambiar en producción.

@@ -30,14 +30,14 @@
 # CONFIGURACIÓN — MODIFICAR ANTES DE EJECUTAR
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
-$IP_SERVIDOR = "<IP_SERVIDOR>"
+$IP_SERVIDOR = "10.253.45.194"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VERIFICACIONES INICIALES
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Por qué: Verificamos que el usuario haya reemplazado el placeholder
-if ($IP_SERVIDOR -eq "<IP_SERVIDOR>") {
+if ($IP_SERVIDOR -eq "10.253.45.194") {
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Red
     Write-Host "║  ERROR: Debes configurar la IP del servidor.              ║" -ForegroundColor Red
@@ -269,14 +269,14 @@ Write-Host "  │  COMO JUAN (contabilidad)                             │" -Fo
 Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor White
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Contabilidad:                                      │" -ForegroundColor Gray
-Write-Host "  │  net use K: \\$IP_SERVIDOR\contabilidad /user:juan Juan2026" -ForegroundColor Yellow
+Write-Host "  │  net use K: \\$IP_SERVIDOR\contabilidad /user:dani Dani2026" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Verificar y probar escritura:                      │" -ForegroundColor Gray
 Write-Host "  │  dir K:\                                              │" -ForegroundColor Yellow
-Write-Host "  │  echo Informe Q1 > K:\informe_juan.txt               │" -ForegroundColor Yellow
+Write-Host "  │  echo Informe Q1 > K:\informe_dani.txt               │" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
-Write-Host "  │  # Juan NO puede acceder a /privado:                  │" -ForegroundColor Gray
-Write-Host "  │  net use V: \\$IP_SERVIDOR\privado /user:juan Juan2026" -ForegroundColor Yellow
+Write-Host "  │  # Dani NO puede acceder a /privado:                  │" -ForegroundColor Gray
+Write-Host "  │  net use V: \\$IP_SERVIDOR\privado /user:dani Dani2026" -ForegroundColor Yellow
 Write-Host "  │  (Deberia dar: Error de sistema 5 / Acceso denegado)  │" -ForegroundColor Gray
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # NOTA: Cambiar contrasena en produccion             │" -ForegroundColor Gray
@@ -289,11 +289,11 @@ Write-Host "  │  COMO MARIA (sistemas)                                │" -Fo
 Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor White
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Sistemas:                                          │" -ForegroundColor Gray
-Write-Host "  │  net use S: \\$IP_SERVIDOR\sistemas /user:maria Maria2026" -ForegroundColor Yellow
+Write-Host "  │  net use S: \\$IP_SERVIDOR\sistemas /user:santi Santi2026" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Verificar y probar escritura:                      │" -ForegroundColor Gray
 Write-Host "  │  dir S:\                                              │" -ForegroundColor Yellow
-Write-Host "  │  echo Reporte red > S:\reporte_maria.txt              │" -ForegroundColor Yellow
+Write-Host "  │  echo Reporte red > S:\reporte_santi.txt              │" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # NOTA: Cambiar contrasena en produccion             │" -ForegroundColor Gray
 Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor White
@@ -355,8 +355,8 @@ Write-Host "  │                                                       │" -Fo
 Write-Host "  │  # Publico (persistente):                             │" -ForegroundColor Gray
 Write-Host "  │  net use P: \\$IP_SERVIDOR\publico /user:guest """" /persistent:yes" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
-Write-Host "  │  # Contabilidad (persistente, como juan):             │" -ForegroundColor Gray
-Write-Host "  │  net use K: \\$IP_SERVIDOR\contabilidad /user:juan Juan2026 /persistent:yes" -ForegroundColor Yellow
+Write-Host "  │  # Contabilidad (persistente, como dani):             │" -ForegroundColor Gray
+Write-Host "  │  net use K: \\$IP_SERVIDOR\contabilidad /user:dani Dani2026 /persistent:yes" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # NOTA: Windows guardara las credenciales en el      │" -ForegroundColor Gray
 Write-Host "  │  # Administrador de credenciales de Windows.          │" -ForegroundColor Gray
@@ -377,15 +377,15 @@ Write-Host "  2. En la barra de direcciones, escribe:" -ForegroundColor White
 Write-Host "     \\$IP_SERVIDOR" -ForegroundColor Yellow
 Write-Host "  3. Presiona Enter" -ForegroundColor White
 Write-Host "  4. Windows te pedira usuario y contrasena" -ForegroundColor White
-Write-Host "  5. Ingresa el usuario (ej: juan) y contrasena (ej: Juan2026)" -ForegroundColor White
+Write-Host "  5. Ingresa el usuario (ej: dani) y contrasena (ej: Dani2026)" -ForegroundColor White
 Write-Host "  6. Veras las carpetas compartidas del servidor" -ForegroundColor White
 Write-Host "  7. Puedes hacer clic derecho en una carpeta y seleccionar" -ForegroundColor White
 Write-Host "     'Conectar a unidad de red' para mapearla permanentemente" -ForegroundColor White
 Write-Host ""
 Write-Host "  Para acceder a un share especifico directamente:" -ForegroundColor White
 Write-Host "     \\$IP_SERVIDOR\publico       (sin contrasena)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\contabilidad  (usuario: juan)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\sistemas      (usuario: maria)" -ForegroundColor Yellow
+Write-Host "     \\$IP_SERVIDOR\contabilidad  (usuario: dani)" -ForegroundColor Yellow
+Write-Host "     \\$IP_SERVIDOR\sistemas      (usuario: santi)" -ForegroundColor Yellow
 Write-Host "     \\$IP_SERVIDOR\privado       (usuario: admin)" -ForegroundColor Yellow
 Write-Host "     \\$IP_SERVIDOR\admin         (usuario: admin, share oculto)" -ForegroundColor Yellow
 Write-Host ""
@@ -414,7 +414,7 @@ Write-Host "    2. Limpia el cache de credenciales:" -ForegroundColor White
 Write-Host "       rundll32.exe keymgr.dll, KRGuiMain" -ForegroundColor Gray
 Write-Host "       (Elimina las entradas del servidor DataCorp)" -ForegroundColor Gray
 Write-Host "    3. Intenta con el formato DOMINIO\usuario:" -ForegroundColor White
-Write-Host "       net use K: \\$IP_SERVIDOR\contabilidad /user:DATACORP\juan Juan2026" -ForegroundColor Gray
+Write-Host "       net use K: \\$IP_SERVIDOR\contabilidad /user:DATACORP\dani Dani2026" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "  ERROR: 'Error de sistema 53 - No se encontro la ruta'" -ForegroundColor Yellow
