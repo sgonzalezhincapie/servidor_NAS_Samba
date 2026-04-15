@@ -209,7 +209,7 @@ test_write "admin" "$DIR_ADMIN"         "should_pass"
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PRUEBAS DE JUAN (usuarios + contabilidad)
+# PRUEBAS DE DANI (usuarios + contabilidad)
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${AZUL}── Pruebas para: dani (grupos: usuarios, contabilidad) ──${RESET}"
 echo "   dani puede: leer /publico, R+W en /contabilidad."
@@ -228,7 +228,7 @@ test_write "dani" "$DIR_ADMIN"          "should_fail"
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PRUEBAS DE MARIA (usuarios + sistemas)
+# PRUEBAS DE SANTI (usuarios + sistemas)
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${AZUL}── Pruebas para: santi (grupos: usuarios, sistemas) ──${RESET}"
 echo "   santi puede: leer /publico, R+W en /sistemas."

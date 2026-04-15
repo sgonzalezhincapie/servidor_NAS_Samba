@@ -76,7 +76,7 @@ Write-Host ""
 # Por qué: Windows tiene SMB habilitado por defecto, pero es posible que alguien
 # lo haya deshabilitado (especialmente SMB1 por seguridad). Verificamos que
 # SMB2 y SMB3 estén activos, que son los que usa nuestro servidor.
-Write-Host "[1/6] Verificando que SMB esta habilitado en Windows..." -ForegroundColor White
+Write-Host "[1/7] Verificando que SMB esta habilitado en Windows..." -ForegroundColor White
 
 # Por qué: Get-SmbClientConfiguration muestra la configuración del cliente SMB
 try {
@@ -116,11 +116,45 @@ catch {
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 2: VERIFICAR CONECTIVIDAD CON EL SERVIDOR
+# PASO 2: HABILITAR ACCESO DE INVITADO EN WINDOWS (FIX ERROR 0xc05d0004)
+# ─────────────────────────────────────────────────────────────────────────────
+# Por qué: Windows 10/11 (desde la versión 1709) bloquea por defecto el acceso
+# SMB de invitado sin cifrado. Cuando el servidor Samba negocia cifrado ("desired")
+# y el cliente intenta conectarse como invitado (sin credenciales), Windows rechaza
+# la conexión con el error 0xc05d0004: "No se admite el cifrado para el acceso
+# de invitado". La clave de registro AllowInsecureGuestAuth = 1 le indica a
+# Windows que permita conexiones de invitado no cifradas a servidores SMB.
+Write-Host "[2/7] Habilitando acceso de invitado SMB en Windows (fix error 0xc05d0004)..." -ForegroundColor White
+
+$regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters"
+$regName = "AllowInsecureGuestAuth"
+
+try {
+    $valorActual = Get-ItemProperty -Path $regPath -Name $regName -ErrorAction SilentlyContinue
+
+    if ($null -ne $valorActual -and $valorActual.$regName -eq 1) {
+        Write-Host "    [OK] AllowInsecureGuestAuth ya esta habilitado (valor = 1)." -ForegroundColor Green
+    }
+    else {
+        Set-ItemProperty -Path $regPath -Name $regName -Value 1 -Type DWord -Force
+        Write-Host "    [OK] AllowInsecureGuestAuth establecido a 1 correctamente." -ForegroundColor Green
+        Write-Host "    NOTA: Este cambio no requiere reiniciar Windows." -ForegroundColor Gray
+    }
+}
+catch {
+    Write-Host "    [X] No se pudo modificar el registro. Asegurate de ejecutar como Administrador." -ForegroundColor Red
+    Write-Host "    Alternativa manual (ejecutar como Administrador):" -ForegroundColor Yellow
+    Write-Host "      reg add HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters /v AllowInsecureGuestAuth /t REG_DWORD /d 1 /f" -ForegroundColor Yellow
+}
+
+Write-Host ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PASO 3: VERIFICAR CONECTIVIDAD CON EL SERVIDOR
 # ─────────────────────────────────────────────────────────────────────────────
 # Por qué: Antes de intentar acceder a los shares, verificamos que hay
 # conexión de red con el servidor y que el puerto SMB (445) está abierto.
-Write-Host "[2/6] Verificando conectividad con el servidor ($IP_SERVIDOR)..." -ForegroundColor White
+Write-Host "[3/7] Verificando conectividad con el servidor ($IP_SERVIDOR)..." -ForegroundColor White
 
 # Por qué: Test-Connection es el equivalente a "ping" en PowerShell.
 Write-Host "  -> Probando ping..."
@@ -154,11 +188,11 @@ else {
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 3: LISTAR SHARES DISPONIBLES EN EL SERVIDOR
+# PASO 4: LISTAR SHARES DISPONIBLES EN EL SERVIDOR
 # ─────────────────────────────────────────────────────────────────────────────
 # Por qué: Antes de mapear unidades, verificamos qué shares están disponibles.
 # "net view" es el comando de Windows para listar shares SMB de un servidor.
-Write-Host "[3/6] Listando shares disponibles en el servidor..." -ForegroundColor White
+Write-Host "[4/7] Listando shares disponibles en el servidor..." -ForegroundColor White
 
 try {
     $shares = net view "\\$IP_SERVIDOR" 2>&1
@@ -179,7 +213,7 @@ catch {
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 4: MAPEAR UNIDADES DE RED
+# PASO 5: MAPEAR UNIDADES DE RED
 # ─────────────────────────────────────────────────────────────────────────────
 # Por qué: En Windows, las carpetas de red se "mapean" como letras de unidad
 # (como D:, E:, etc.). Esto es equivalente a "mount" en Linux.
@@ -192,7 +226,7 @@ Write-Host ""
 #   S: = sistemas
 #   V: = privado
 #   A: = admin
-Write-Host "[4/6] Preparando mapeo de unidades de red..." -ForegroundColor White
+Write-Host "[5/7] Preparando mapeo de unidades de red..." -ForegroundColor White
 Write-Host ""
 
 # Primero, eliminar mapeos anteriores si existen (para evitar conflictos)
@@ -263,9 +297,9 @@ Write-Host "  │  (Deberia dar: Acceso denegado)                       │" -Fo
 Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor White
 Write-Host ""
 
-# ── JUAN ──
+# ── DANI ──
 Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor White
-Write-Host "  │  COMO JUAN (contabilidad)                             │" -ForegroundColor White
+Write-Host "  │  COMO DANI (contabilidad)                              │" -ForegroundColor White
 Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor White
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Contabilidad:                                      │" -ForegroundColor Gray
@@ -283,9 +317,9 @@ Write-Host "  │  # NOTA: Cambiar contrasena en produccion             │" -Fo
 Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor White
 Write-Host ""
 
-# ── MARIA ──
+# ── SANTI ──
 Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor White
-Write-Host "  │  COMO MARIA (sistemas)                                │" -ForegroundColor White
+Write-Host "  │  COMO SANTI (sistemas)                                 │" -ForegroundColor White
 Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor White
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Sistemas:                                          │" -ForegroundColor Gray
@@ -321,9 +355,9 @@ Write-Host "  └─────────────────────
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 5: CÓMO DESCONECTAR UNIDADES
+# PASO 6: CÓMO DESCONECTAR UNIDADES
 # ─────────────────────────────────────────────────────────────────────────────
-Write-Host "[5/6] Como desconectar unidades de red..." -ForegroundColor White
+Write-Host "[6/7] Como desconectar unidades de red..." -ForegroundColor White
 Write-Host ""
 Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor White
 Write-Host "  │  DESCONECTAR UNIDADES DE RED                          │" -ForegroundColor White
@@ -341,9 +375,9 @@ Write-Host "  └─────────────────────
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 6: MAPEO PERSISTENTE (sobrevive al reinicio)
+# PASO 7: MAPEO PERSISTENTE (sobrevive al reinicio)
 # ─────────────────────────────────────────────────────────────────────────────
-Write-Host "[6/6] Mapeo persistente (opcional)..." -ForegroundColor White
+Write-Host "[7/7] Mapeo persistente (opcional)..." -ForegroundColor White
 Write-Host ""
 Write-Host "  Para que las unidades se reconecten automaticamente" -ForegroundColor White
 Write-Host "  cada vez que inicias sesion en Windows, agrega /persistent:yes:" -ForegroundColor White

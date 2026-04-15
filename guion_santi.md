@@ -6,7 +6,7 @@
 
 ---
 
-## BLOQUE 1 — Qué hace un cliente y qué herramientas usamos
+## BLOQUE 1 — Introducción y ejecutar el script del cliente
 
 > **[Mostrar en pantalla: terminal de Arch Linux]**
 
@@ -14,80 +14,37 @@
 
 > Yo soy Santiago y voy a mostrar la parte del **cliente Linux** con Arch Linux. Ya Manuela configuró el servidor con Samba en Ubuntu. Ahora lo que yo hago es conectarme desde otro computador para acceder a las carpetas compartidas.
 >
-> En Linux, para poder acceder a carpetas compartidas por Samba, necesitamos instalar dos cosas:
-> - **cifs-utils** — nos da el comando `mount.cifs`, que permite montar una carpeta remota como si fuera un directorio local en nuestro computador. Es como si el servidor se convirtiera en otra carpeta más del disco.
-> - **smbclient** — es una herramienta de terminal para explorar el servidor, listar los recursos compartidos y probar la conexión. Funciona como un mini explorador de archivos por consola.
+> Voy a usar un script que automatiza la configuración del cliente. El script hace 5 cosas: instala los paquetes necesarios, verifica conectividad con el servidor, crea las carpetas donde se van a montar los shares, verifica la versión de SMB y muestra los comandos de montaje.
 
 **Ejecutar:**
 
 ```bash
-sudo pacman -S --needed cifs-utils smbclient
+sudo bash setup_cliente_arch.sh
 ```
 
-**Decir:**
+**Decir (mientras el script corre, explicar lo que aparece):**
 
-> En Arch se instalan con `pacman`. El `--needed` evita reinstalar lo que ya esté instalado.
-
----
-
-## BLOQUE 2 — Verificar conectividad con el servidor
-
-> **[Mostrar en pantalla: terminal]**
-
-**Decir:**
-
-> Antes de montar carpetas, verifico que hay conexión con el servidor. Primero con un ping básico.
-
-**Ejecutar:**
-
-```bash
-ping -c 3 <IP_SERVIDOR>
-```
-
-*(Reemplazar `<IP_SERVIDOR>` por la IP real que dio Manuela)*
-
-**Decir:**
-
-> El ping responde, así que hay conexión de red. Ahora verifico que Samba esté funcionando y accesible. Para eso uso `smbclient -L` que lista los recursos compartidos del servidor.
-
-**Ejecutar:**
-
-```bash
-smbclient -L //<IP_SERVIDOR> -U admin
-```
-
-*(Poner contraseña: Admin2026)*
-
-**Decir:**
-
-> Acá vemos los cuatro shares visibles: `publico`, `contabilidad`, `sistemas` y `privado`. Todos son de tipo `Disk`, que significa que son carpetas compartidas. El share `admin` no aparece porque está configurado como oculto (`browseable = no` en el `smb.conf`).
+> El script primero instala **cifs-utils** y **smbclient**:
+> - **cifs-utils** nos da el comando `mount.cifs`, que permite montar una carpeta remota como si fuera un directorio local en nuestro computador.
+> - **smbclient** es una herramienta de terminal para explorar el servidor y listar los recursos compartidos.
 >
-> La opción `-U admin` indica que me autentico como el usuario `admin`. Si lo hiciera sin usuario (con `-N`, que es anónimo), puede que no muestre todo porque el servidor trata las conexiones anónimas como invitados.
+> Después verifica la conexión con el servidor usando ping y probando que el puerto 445 de SMB esté abierto. Y por último crea las carpetas en `/mnt/datacorp/` donde vamos a montar cada recurso compartido.
 
 ---
 
-## BLOQUE 3 — Montar carpetas compartidas
+## BLOQUE 2 — Montar carpetas compartidas y explicar el montaje
 
 > **[Mostrar en pantalla: terminal]**
 
 **Decir:**
 
 > Ahora viene lo importante: **montar las carpetas remotas**. Montar significa que una carpeta que físicamente está en el servidor de Manuela va a aparecer en MI computador como si fuera una carpeta local. Puedo navegar por ella, ver archivos, e incluso crear archivos si tengo permisos.
-
-**Ejecutar:**
-
-```bash
-# Crear los puntos de montaje (carpetas vacías donde se "proyectan" los shares)
-sudo mkdir -p /mnt/datacorp/{publico,contabilidad,sistemas,privado,admin}
-```
-
-**Decir:**
-
-> Primero creo las carpetas locales donde voy a montar cada recurso. Son carpetas vacías que después van a "llenarse" con el contenido remoto.
+>
+> El script ya creó las carpetas vacías en `/mnt/datacorp/`. Ahora monto cada share con `mount.cifs`.
 
 ---
 
-### 3.1 Montar /publico como invitado
+### 2.1 Montar /publico como invitado
 
 **Ejecutar:**
 
@@ -101,7 +58,7 @@ sudo mount.cifs //<IP_SERVIDOR>/publico /mnt/datacorp/publico \
 > Explico cada parte del comando:
 > - `//<IP_SERVIDOR>/publico` — es la ruta del share remoto, con la IP del servidor y el nombre del recurso compartido.
 > - `/mnt/datacorp/publico` — es la carpeta local donde se va a montar.
-> - `-o guest` — me conecto como invitado, sin contraseña.
+> - `username=invitado,password=Invitado2026` — me conecto como el usuario invitado. Aunque en la práctica es una cuenta con permisos mínimos, en Samba tiene su propia contraseña.
 > - `vers=3.0` — uso la versión 3 de SMB, que es la más segura. SMB1 está deshabilitado en nuestro servidor porque tiene vulnerabilidades graves (el ransomware WannaCry de 2017 las aprovechó).
 
 **Ejecutar:**
@@ -116,7 +73,7 @@ ls -la /mnt/datacorp/publico
 
 ---
 
-## BLOQUE 4 — Probar que los permisos funcionan (RBAC en acción)
+## BLOQUE 3 — Probar que los permisos funcionan (RBAC en acción)
 
 > **[Mostrar en pantalla: terminal]**
 
@@ -196,7 +153,7 @@ cat /mnt/datacorp/privado/confidencial.txt
 
 ---
 
-## BLOQUE 5 — Explorar con smbclient (modo interactivo)
+## BLOQUE 4 — Explorar con smbclient (modo interactivo)
 
 > **[Mostrar en pantalla: terminal]**
 
@@ -227,7 +184,7 @@ smb: \> exit
 
 ---
 
-## BLOQUE 6 — Desmontar y verificar SMB
+## BLOQUE 5 — Desmontar y verificar SMB
 
 **Ejecutar:**
 

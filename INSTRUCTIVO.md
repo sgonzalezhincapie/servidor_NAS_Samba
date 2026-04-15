@@ -110,7 +110,7 @@ El servidor crea estos **usuarios Samba** (no confundir con los integrantes del 
 | `admin` | `Admin2026` | `administradores` | **Todo**: publico (R+W), contabilidad (R+W), sistemas (R+W), privado (R+W), admin (R+W) |
 | `dani` | `Dani2026` | `usuarios`, `contabilidad` | publico (R), contabilidad (R+W). **Sin acceso** a: sistemas, privado, admin |
 | `santi` | `Santi2026` | `usuarios`, `sistemas` | publico (R), sistemas (R+W). **Sin acceso** a: contabilidad, privado, admin |
-| `invitado` | *(sin contraseña)* | `invitados` | publico (R). **Sin acceso** a todo lo demás |
+| `invitado` | `Invitado2026` | `invitados` | publico (R). **Sin acceso** a todo lo demás |
 
 **R** = solo lectura | **R+W** = lectura y escritura
 
@@ -590,7 +590,8 @@ sudo mount.cifs //<IP_SERVIDOR>/publico /mnt/datacorp/publico \
 **Explicación de cada opción:**
 | Opción | Significado |
 |--------|-------------|
-| `guest` | Conectarse sin usuario/contraseña |
+| `username=invitado` | Conectarse como el usuario invitado |
+| `password=Invitado2026` | Contraseña del usuario invitado |
 | `vers=3.0` | Usar SMB versión 3.0 (seguro y compatible) |
 | `uid=$(id -u)` | Los archivos montados se ven como del usuario actual |
 | `gid=$(id -g)` | Los archivos montados se ven con el grupo actual |
@@ -702,9 +703,36 @@ smbclient //<IP_SERVIDOR>/privado -U dani
 
 > **¿Por qué Windows no necesita instalar nada?** SMB es un protocolo inventado por Microsoft. Windows lo soporta de forma nativa desde hace décadas. No necesitas instalar paquetes como en Linux; el Explorador de archivos ya sabe "hablar" SMB.
 
-### Paso 1: Verificar conectividad con el servidor
+### Paso 1: Ejecutar el script de configuración (recomendado)
 
-Abre **PowerShell** o **CMD** (no necesita ser como Administrador para esto):
+El script `setup_cliente_windows.ps1` automatiza la verificación de SMB, la conectividad, el fix del registro de Windows (error `0xc05d0004`) y muestra los comandos de mapeo. **Es la forma recomendada de configurar el cliente.**
+
+```powershell
+# 1. Abrir PowerShell como Administrador (clic derecho → "Ejecutar como administrador")
+# 2. Habilitar ejecución de scripts (solo la primera vez):
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 3. Editar el script y cambiar la variable $IP_SERVIDOR por la IP real:
+notepad .\setup_cliente_windows.ps1
+
+# 4. Ejecutar:
+.\setup_cliente_windows.ps1
+```
+
+El script ejecuta 7 pasos automáticamente:
+1. Verifica que SMB2/SMB3 estén habilitados en Windows.
+2. **Habilita el acceso de invitado** en el registro de Windows (fix para el error `0xc05d0004`).
+3. Verifica conectividad con ping y puerto 445.
+4. Lista los shares disponibles en el servidor.
+5. Prepara el mapeo de unidades de red.
+6. Muestra comandos de desconexión.
+7. Muestra cómo hacer mapeos persistentes.
+
+> **IMPORTANTE:** El Paso 2 del script corrige un error frecuente de Windows 10/11 donde bloquea conexiones de invitado sin cifrado (`AllowInsecureGuestAuth`). Sin este fix, acceder a `\\<IP_SERVIDOR>` como invitado da error `0xc05d0004`.
+
+### Paso 2 (alternativa manual): Verificar conectividad con el servidor
+
+Si prefieres hacer la configuración paso a paso sin el script:
 
 ```powershell
 # Verificar que hay conexión de red con el servidor
@@ -719,6 +747,16 @@ Test-NetConnection -ComputerName <IP_SERVIDOR> -Port 445
 ```
 
 Si `TcpTestSucceeded` dice `True`, Samba está accesible.
+
+### Paso 2.1 (manual): Habilitar acceso de invitado (fix error 0xc05d0004)
+
+Windows 10/11 bloquea por defecto el acceso SMB de invitado sin cifrado. Para solucionarlo, ejecuta en **PowerShell como Administrador**:
+
+```powershell
+reg add HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters /v AllowInsecureGuestAuth /t REG_DWORD /d 1 /f
+```
+
+Esto permite que Windows se conecte al share `publico` como invitado sin cifrado. No requiere reiniciar.
 
 ### Paso 2: Acceder a los shares desde el Explorador de archivos (método GUI)
 
@@ -829,21 +867,9 @@ net use K: \\<IP_SERVIDOR>\contabilidad /user:dani Dani2026 /persistent:yes
 
 Windows guardará las credenciales en el **Administrador de credenciales** y reconectará las unidades automáticamente.
 
-### Paso 7: Ejecutar el script automatizado (opcional)
+### Referencia: Todos estos pasos los automatiza `setup_cliente_windows.ps1`
 
-Si prefieres automatizar todo, usa el script PowerShell incluido:
-
-```powershell
-# 1. Abrir PowerShell como Administrador
-# 2. Habilitar ejecución de scripts (solo la primera vez):
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# 3. Editar el script y cambiar <IP_SERVIDOR>:
-notepad .\setup_cliente_windows.ps1
-
-# 4. Ejecutar:
-.\setup_cliente_windows.ps1
-```
+Si no ejecutaste el script en el Paso 1, los pasos 2-6 de arriba son lo que el script hace automáticamente. Para la exposición, se recomienda ejecutar el script directamente y explicar lo que hace en cada paso.
 
 ---
 
@@ -1346,6 +1372,34 @@ net use * /delete /yes
 # 3. Reconectar con el usuario deseado
 net use K: \\<IP_SERVIDOR>\contabilidad /user:dani Dani2026
 ```
+
+---
+
+### Error W4: Error `0xc05d0004` — "No se admite el cifrado para el acceso de invitado"
+
+**Síntoma:** Al intentar acceder a `\\<IP_SERVIDOR>` desde Windows aparece:
+```
+Código de error: 0xc05d0004
+Error en la operación solicitada. No se admite el cifrado para el acceso de invitado.
+```
+
+**Causa:** Windows 10/11 (desde la versión 1709) bloquea por defecto las sesiones SMB de invitado que intenten negociar cifrado. Cuando el servidor Samba tiene `smb encrypt = desired` globalmente, las conexiones de invitado fallan porque no hay credenciales para derivar las claves de cifrado.
+
+**Solución (dos partes):**
+
+1. **En el servidor** — El share `[publico]` en `smb.conf` ya tiene `smb encrypt = no` para sobreescribir el `desired` global. Si volviste a copiar un `smb.conf` antiguo, verifica que esa línea esté presente:
+   ```ini
+   [publico]
+      smb encrypt = no
+      guest ok = yes
+   ```
+   Después: `sudo testparm -s && sudo systemctl restart smbd nmbd`
+
+2. **En Windows** — Ejecutar en **PowerShell como Administrador**:
+   ```powershell
+   reg add HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters /v AllowInsecureGuestAuth /t REG_DWORD /d 1 /f
+   ```
+   El script `setup_cliente_windows.ps1` aplica este fix automáticamente en su Paso 2.
 
 ---
 

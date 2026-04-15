@@ -6,9 +6,9 @@
 
 ---
 
-## BLOQUE 1 — Por qué Windows no necesita instalar nada
+## BLOQUE 1 — Por qué Windows no necesita instalar nada + ejecutar script
 
-> **[Mostrar en pantalla: escritorio de Windows con PowerShell abierto]**
+> **[Mostrar en pantalla: escritorio de Windows con PowerShell abierto como Administrador]**
 
 **Decir:**
 
@@ -16,43 +16,28 @@
 >
 > Lo primero que hay que saber es que Windows **no necesita instalar nada**. ¿Por qué? Porque el protocolo SMB lo inventó Microsoft. Windows tiene el cliente SMB integrado desde hace décadas: el Explorador de archivos ya sabe cómo conectarse a carpetas compartidas en red. En cambio, en Linux (como vimos con Santiago) hubo que instalar `cifs-utils` y `smbclient` porque Linux fue diseñado originalmente con otro protocolo, NFS.
 >
+> Voy a usar un script de PowerShell que automatiza la verificación y configuración del cliente Windows.
+
+**Ejecutar:**
+
+```powershell
+.\setup_cliente_windows.ps1
+```
+
+**Decir (mientras el script corre, explicar lo que aparece):**
+
+> El script hace 7 pasos:
+> 1. Verifica que SMB2 y SMB3 estén habilitados en Windows.
+> 2. **Corrige un error** muy común de Windows 10/11: por defecto, Windows bloquea las conexiones de invitado que no tienen cifrado. El script escribe una clave en el registro de Windows (`AllowInsecureGuestAuth`) para permitirlo. Sin esto, intentar acceder al share público como invitado da un error `0xc05d0004`.
+> 3. Hace ping al servidor y verifica que el puerto 445 de SMB esté abierto.
+> 4. Lista los shares disponibles.
+> 5-7. Muestra los comandos de mapeo para cada usuario.
+>
 > Esto demuestra que Samba es **multiplataforma**: un servidor Linux puede atender clientes de cualquier sistema operativo sin problemas.
 
 ---
 
-## BLOQUE 2 — Verificar conectividad con el servidor
-
-> **[Mostrar en pantalla: PowerShell]**
-
-**Decir:**
-
-> Antes de conectarme, verifico que hay comunicación con el servidor.
-
-**Ejecutar:**
-
-```powershell
-ping <IP_SERVIDOR>
-```
-
-*(Reemplazar `<IP_SERVIDOR>` por la IP real que dio Manuela)*
-
-**Decir:**
-
-> El ping responde, hay conexión de red. Ahora verifico que el puerto 445 esté abierto. El puerto 445 es por donde viaja el protocolo SMB.
-
-**Ejecutar:**
-
-```powershell
-Test-NetConnection -ComputerName <IP_SERVIDOR> -Port 445
-```
-
-**Decir:**
-
-> `TcpTestSucceeded: True` — eso significa que Samba está escuchando y acepta conexiones en ese puerto. Si dijera `False`, sería un problema de firewall o que Samba no está corriendo.
-
----
-
-## BLOQUE 3 — Acceder desde el Explorador de archivos (método visual)
+## BLOQUE 2 — Acceder desde el Explorador de archivos (método visual)
 
 > **[Mostrar en pantalla: escritorio de Windows]**
 
@@ -98,7 +83,7 @@ Test-NetConnection -ComputerName <IP_SERVIDOR> -Port 445
 
 ---
 
-## BLOQUE 4 — Mapear unidades de red con net use (método terminal)
+## BLOQUE 3 — Mapear unidades de red con net use (método terminal)
 
 > **[Mostrar en pantalla: PowerShell como Administrador]**
 
@@ -156,7 +141,7 @@ net use V: \\<IP_SERVIDOR>\privado /user:admin Admin2026
 
 ---
 
-## BLOQUE 5 — Verificar la versión de SMB
+## BLOQUE 4 — Verificar la versión de SMB
 
 > **[Mostrar en pantalla: PowerShell como Administrador]**
 
@@ -176,7 +161,7 @@ Get-SmbConnection | Format-Table ServerName, ShareName, Dialect
 
 ---
 
-## BLOQUE 6 — Pruebas de permisos cruzadas
+## BLOQUE 5 — Pruebas de permisos cruzadas
 
 > **[Mostrar en pantalla: PowerShell]**
 
@@ -233,7 +218,7 @@ type V:\secreto.txt
 
 ---
 
-## BLOQUE 7 — Desconectar y cierre
+## BLOQUE 6 — Desconectar y cierre
 
 **Ejecutar:**
 
@@ -249,7 +234,7 @@ net use * /delete /yes
 
 ---
 
-## BLOQUE 8 — Cierre conjunto (si aplica)
+## BLOQUE 7 — Cierre conjunto (si aplica)
 
 **Decir (cualquiera de los tres):**
 
