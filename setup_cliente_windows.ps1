@@ -36,8 +36,8 @@ $IP_SERVIDOR = "10.253.45.194"
 # VERIFICACIONES INICIALES
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Por qué: Verificamos que el usuario haya reemplazado el placeholder
-if ($IP_SERVIDOR -eq "10.253.45.194") {
+# Por qué: Verificamos que el usuario haya puesto una IP válida (no vacía ni placeholder)
+if ([string]::IsNullOrWhiteSpace($IP_SERVIDOR) -or $IP_SERVIDOR -match "[<>]") {
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Red
     Write-Host "║  ERROR: Debes configurar la IP del servidor.              ║" -ForegroundColor Red

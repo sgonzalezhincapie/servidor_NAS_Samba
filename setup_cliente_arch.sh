@@ -26,7 +26,6 @@ set -e
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
 IP_SERVIDOR="10.253.45.194"
-#IP_SERVIDOR="<IP_SERVIDOR>"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 0: COMPROBACIONES INICIALES
@@ -41,8 +40,8 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Por qué: Verificamos que el usuario haya reemplazado el placeholder
-if [ "$IP_SERVIDOR" = "10.253.45.194" ]; then
+# Por qué: Verificamos que el usuario haya puesto una IP válida (no vacía ni placeholder)
+if [ -z "$IP_SERVIDOR" ] || echo "$IP_SERVIDOR" | grep -q '[<>]'; then
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║  ERROR: Debes configurar la IP del servidor.             ║"
     echo "║                                                          ║"
