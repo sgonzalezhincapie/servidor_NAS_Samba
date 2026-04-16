@@ -447,10 +447,21 @@ systemctl enable nmbd
 
 # Por qué: restart = (re)iniciar ahora para aplicar la configuración
 systemctl restart smbd
-systemctl restart nmbd
-
 echo "    ✓ smbd habilitado e iniciado."
-echo "    ✓ nmbd habilitado e iniciado."
+
+# Por qué: nmbd (resolución de nombres NetBIOS) puede fallar por timeout en
+# instalaciones minimizadas de Ubuntu Server o en máquinas virtuales con
+# recursos limitados. Esto NO afecta al servicio de archivos (smbd), ya que
+# nmbd solo permite encontrar el servidor por nombre (ej: \\DATACORP) en vez
+# de por IP. Como nos conectamos por IP directamente, nmbd es opcional.
+if systemctl restart nmbd 2>/dev/null; then
+    echo "    ✓ nmbd habilitado e iniciado."
+else
+    echo "    ⚠ nmbd no pudo iniciarse (timeout o no disponible)."
+    echo "      Esto NO afecta el funcionamiento del servidor de archivos."
+    echo "      nmbd solo se usa para resolución de nombres NetBIOS."
+    echo "      Los clientes pueden conectarse normalmente usando la IP."
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 14: CONFIGURACIÓN DEL FIREWALL
