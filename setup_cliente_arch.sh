@@ -25,7 +25,7 @@ set -e
 # VARIABLE DE CONFIGURACIÓN — MODIFICAR ANTES DE EJECUTAR
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
-IP_SERVIDOR="10.253.45.194"
+IP_SERVIDOR="192.168.1.55"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 0: COMPROBACIONES INICIALES

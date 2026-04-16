@@ -30,7 +30,7 @@
 # CONFIGURACIÓN — MODIFICAR ANTES DE EJECUTAR
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
-$IP_SERVIDOR = "10.253.45.194"
+$IP_SERVIDOR = "192.168.1.55"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VERIFICACIONES INICIALES
@@ -355,9 +355,16 @@ Write-Host "  └─────────────────────
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PASO 6: CÓMO DESCONECTAR UNIDADES
+# PASO 6: CÓMO DESCONECTAR UNIDADES Y LIMPIAR CREDENCIALES CACHEADAS
 # ─────────────────────────────────────────────────────────────────────────────
-Write-Host "[6/7] Como desconectar unidades de red..." -ForegroundColor White
+# Por qué: Windows cachea las credenciales SMB en la sesión. Esto significa que
+# si te logueaste como "admin", al volver a acceder con Win+R → \\IP_SERVIDOR,
+# Windows reutiliza las credenciales de admin SIN volver a pedirlas.
+# Para cambiar de usuario o forzar que pida credenciales de nuevo, hay que:
+#   1. Desconectar las unidades mapeadas (net use /delete)
+#   2. Eliminar las credenciales cacheadas (cmdkey /delete)
+# Ambos pasos son NECESARIOS. Solo desconectar la unidad NO borra la caché.
+Write-Host "[6/8] Como desconectar unidades y LIMPIAR CREDENCIALES..." -ForegroundColor White
 Write-Host ""
 Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor White
 Write-Host "  │  DESCONECTAR UNIDADES DE RED                          │" -ForegroundColor White
@@ -375,9 +382,74 @@ Write-Host "  └─────────────────────
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PASO 7: LIMPIAR CACHÉ DE CREDENCIALES (IMPORTANTE PARA CAMBIAR DE USUARIO)
+# ─────────────────────────────────────────────────────────────────────────────
+# Por qué: Cuando accedes a \\IP_SERVIDOR desde el Explorador de archivos o
+# con "net use", Windows guarda las credenciales en el "Credential Manager"
+# (Administrador de credenciales). Mientras estén ahí, Windows las reutiliza
+# automáticamente y NUNCA te vuelve a pedir usuario/contraseña.
+# Esto es un problema en el laboratorio porque necesitamos probar con diferentes
+# usuarios (dani, santi, admin, invitado).
+Write-Host "[7/8] Limpiar cache de credenciales SMB (CLAVE para el lab)..." -ForegroundColor White
+Write-Host ""
+Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor Red
+Write-Host "  │  IMPORTANTE: Si Windows no te pide credenciales       │" -ForegroundColor Red
+Write-Host "  │  al reconectarte, ejecuta estos comandos EN ORDEN:    │" -ForegroundColor Red
+Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor Red
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 1: Desconectar todas las unidades de red:       │" -ForegroundColor Gray
+Write-Host "  │  net use * /delete /yes                               │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 2: Eliminar credenciales cacheadas del servidor:│" -ForegroundColor Gray
+Write-Host "  │  cmdkey /delete:$IP_SERVIDOR                          │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 3 (verificar): Listar credenciales guardadas:   │" -ForegroundColor Gray
+Write-Host "  │  cmdkey /list                                         │" -ForegroundColor Yellow
+Write-Host "  │  (No deberia aparecer $IP_SERVIDOR en la lista)       │" -ForegroundColor Gray
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 4: Ahora si, conectate de nuevo:                │" -ForegroundColor Gray
+Write-Host "  │  Win+R → \\$IP_SERVIDOR → Enter                      │" -ForegroundColor Yellow
+Write-Host "  │  (Windows te pedira usuario y contrasena de nuevo)    │" -ForegroundColor Gray
+Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor Red
+Write-Host ""
+
+Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+Write-Host "  │  ALTERNATIVA: Limpiar desde la interfaz grafica       │" -ForegroundColor Cyan
+Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor Cyan
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  1. Abre 'Administrador de credenciales':             │" -ForegroundColor White
+Write-Host "  │     Win+R → control keymgr.dll → Enter                │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  2. Clic en 'Credenciales de Windows'                 │" -ForegroundColor White
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  3. Busca la entrada con la IP: $IP_SERVIDOR          │" -ForegroundColor White
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  4. Clic en la flecha → 'Quitar'                     │" -ForegroundColor White
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  5. Ahora al entrar a \\$IP_SERVIDOR te pedira        │" -ForegroundColor White
+Write-Host "  │     credenciales de nuevo.                             │" -ForegroundColor White
+Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+Write-Host ""
+
+# Automatizar limpieza de credenciales del servidor NAS
+Write-Host "  -> Limpiando credenciales cacheadas del servidor $IP_SERVIDOR..." -ForegroundColor Gray
+try {
+    # Eliminar credenciales cacheadas para la IP del servidor
+    cmdkey /delete:$IP_SERVIDOR 2>&1 | Out-Null
+    # También intentar con formato de ruta UNC
+    cmdkey /delete:"\\$IP_SERVIDOR" 2>&1 | Out-Null
+    Write-Host "    [OK] Cache de credenciales limpiada." -ForegroundColor Green
+    Write-Host "    La proxima vez que accedas a \\$IP_SERVIDOR te pedira credenciales." -ForegroundColor Gray
+}
+catch {
+    Write-Host "    [!] No se encontraron credenciales cacheadas (puede ser normal)." -ForegroundColor Yellow
+}
+Write-Host ""
+
+# ─────────────────────────────────────────────────────────────────────────────
 # PASO 7: MAPEO PERSISTENTE (sobrevive al reinicio)
 # ─────────────────────────────────────────────────────────────────────────────
-Write-Host "[7/7] Mapeo persistente (opcional)..." -ForegroundColor White
+Write-Host "[8/8] Mapeo persistente (opcional)..." -ForegroundColor White
 Write-Host ""
 Write-Host "  Para que las unidades se reconecten automaticamente" -ForegroundColor White
 Write-Host "  cada vez que inicias sesion en Windows, agrega /persistent:yes:" -ForegroundColor White
@@ -441,12 +513,13 @@ Write-Host "       Panel de control → Centro de redes → Cambiar config. avan
 Write-Host "       → Activar descubrimiento de red" -ForegroundColor Gray
 Write-Host ""
 
-Write-Host "  ERROR: 'Las credenciales no funcionan'" -ForegroundColor Yellow
-Write-Host "    1. Windows puede cachear credenciales antiguas. Limpia con:" -ForegroundColor White
+Write-Host "  ERROR: 'Las credenciales no funcionan' o 'Entra sin pedir clave'" -ForegroundColor Yellow
+Write-Host "    1. Windows cachea credenciales de la sesion. Limpia con:" -ForegroundColor White
 Write-Host "       net use * /delete /yes" -ForegroundColor Gray
-Write-Host "    2. Limpia el cache de credenciales:" -ForegroundColor White
-Write-Host "       rundll32.exe keymgr.dll, KRGuiMain" -ForegroundColor Gray
-Write-Host "       (Elimina las entradas del servidor DataCorp)" -ForegroundColor Gray
+Write-Host "       cmdkey /delete:$IP_SERVIDOR" -ForegroundColor Gray
+Write-Host "    2. O limpia desde la interfaz grafica:" -ForegroundColor White
+Write-Host "       Win+R → control keymgr.dll → Credenciales de Windows" -ForegroundColor Gray
+Write-Host "       (Elimina la entrada con la IP $IP_SERVIDOR)" -ForegroundColor Gray
 Write-Host "    3. Intenta con el formato DOMINIO\usuario:" -ForegroundColor White
 Write-Host "       net use K: \\$IP_SERVIDOR\contabilidad /user:DATACORP\dani Dani2026" -ForegroundColor Gray
 Write-Host ""
