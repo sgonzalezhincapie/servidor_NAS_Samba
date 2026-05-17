@@ -1,6 +1,8 @@
 # Servidor NAS con Samba
 
-Servidor de archivos en red compartida (NAS) usando Samba sobre Linux. Permite que equipos Windows, Arch Linux y Ubuntu accedan a carpetas compartidas con permisos por usuario y grupo/VLAN.
+Servidor de archivos en red compartida (NAS) usando Samba sobre Linux. Permite
+que equipos Windows, Arch Linux y Ubuntu accedan a carpetas compartidas con
+permisos por usuario y grupo/departamento.
 
 ---
 
@@ -10,11 +12,31 @@ Servidor de archivos en red compartida (NAS) usando Samba sobre Linux. Permite q
 python3 configurar.py
 ```
 
-Un menú te preguntará qué vas a configurar (servidor o cliente) y ejecutará el script correspondiente.
+Muestra un menú para configurar el servidor, configurar un cliente o desinstalar.
+No necesitas saber qué script ejecutar — el launcher lo detecta por ti.
+
+---
+
+## ¿Cuándo usar `configurar.py` y cuándo los scripts directamente?
+
+| Situación | Qué usar |
+|---|---|
+| Primera vez, no estoy seguro de qué hacer | `python3 configurar.py` |
+| Quiero configurar el servidor | `python3 configurar.py` → Servidor, o `sudo bash setup_servidor.sh` |
+| Quiero configurar este equipo como cliente | `python3 configurar.py` → Cliente |
+| Quiero desinstalar / revertir todo | `python3 configurar.py` → Desinstalar |
+| Estoy en Windows | Ir directo al `.ps1` (Python puede no estar instalado) |
+| Prefiero el script directo sin menú | `sudo bash setup_*.sh` o `sudo bash limpiar_*.sh` |
+
+> **Nota para clientes Linux:** antes de ejecutar `setup_cliente_arch.sh` o
+> `setup_cliente_ubuntu.sh` directamente, edita la variable `IP_SERVIDOR` al
+> inicio del archivo con la IP real del servidor NAS.
 
 ---
 
 ## Archivos del proyecto
+
+### Configuración
 
 | Archivo | Para quién |
 |---|---|
@@ -23,8 +45,17 @@ Un menú te preguntará qué vas a configurar (servidor o cliente) y ejecutará 
 | `setup_cliente_arch.sh` | Ejecutar en el equipo cliente con Arch Linux |
 | `setup_cliente_ubuntu.sh` | Ejecutar en el equipo cliente con Ubuntu Desktop |
 | `setup_cliente_windows.ps1` | Ejecutar en el equipo cliente con Windows 10/11 |
-| `smb.conf` | Configuración de Samba (el setup del servidor la instala automáticamente) |
+| `smb.conf` | Configuración de Samba (instalada automáticamente por el setup del servidor) |
 | `verificacion_permisos.sh` | Ejecutar en el servidor para verificar que los permisos están bien |
+
+### Limpieza / Desinstalación
+
+| Archivo | Para quién |
+|---|---|
+| `limpiar_servidor.sh` | Revertir toda la configuración del servidor (borra datos) |
+| `limpiar_cliente_arch.sh` | Desinstalar cliente NAS en Arch Linux |
+| `limpiar_cliente_ubuntu.sh` | Desinstalar cliente NAS en Ubuntu Desktop |
+| `limpiar_cliente_windows.ps1` | Revertir configuración de cliente en Windows 10/11 |
 
 ---
 
@@ -42,80 +73,8 @@ Un menú te preguntará qué vas a configurar (servidor o cliente) y ejecutará 
 └── admin/                → Solo admin (oculto en la red)
 ```
 
-> Los grupos de departamento se configuran durante la instalación del servidor. Los anteriores son los valores por defecto.
-
----
-Updated memory file plan.md
-Validación del launcher en Python
-La idea es sólida y tiene sentido. Acá mi análisis:
-
-Por qué funciona bien:
-
-Python 3 viene preinstalado en Ubuntu (server y desktop), Arch Linux, y Debian. No requiere instalación adicional.
-Permite un único punto de entrada: python3 configurar.py → menú visual → ejecuta el script correcto.
-En Windows, Python también puede estar instalado. Si no, el README indica que vayan directo al .ps1.
-Arquitectura recomendada (y por qué):
-
-El launcher Python solo enruta — no duplica los prompts. Los scripts de shell/PowerShell mantienen toda su lógica interactiva. El launcher simplemente hace:
-
-￼
-¿Qué vas a configurar?  [1] Servidor (Ubuntu Server)  [2] Cliente Linux - Arch Linux  [3] Cliente Linux - Ubuntu  [4] Cliente Windows → (muestra instrucciones del .ps1, lo ejecuta si Python está en Windows)→ Llama a: sudo bash setup_servidor.sh  (o el que corresponda)
-Caveat importante: Si el launcher llama a los scripts, no puede capturar los prompts interactivos de bash a menos que los scripts corran directamente en la terminal del usuario. La solución es que el launcher use os.execvp o subprocess con stdin=None para que el script bash tome control de la terminal directamente — esto funciona perfectamente.
-
-Lo que NO haría: Que el launcher duplique la lógica de preguntas. Los scripts bash son los que preguntan, el launcher solo decide cuál correr.
-
-Acá el plan actualizado completo:
-
-Plan: Reorganización y funcionalización del NAS (actualizado)
-TL;DR: Reescribir el README como guía de despliegue, corregir bugs técnicos en scripts, hacer el servidor interactivo (grupos/usuarios/contraseñas configurables), crear setup_cliente_ubuntu.sh y un launcher configurar.py. Borrar archivos obsoletos al final.
-
-Fase 1 — Servidor (bloqueante)
-1. smb.conf — Un solo cambio:
-
-Reemplazar interfaces = lo wlo1 por interfaces = lo <INTERFAZ_RED> (placeholder que setup_servidor.sh inyectará con sed antes de copiar a samba)
-2. setup_servidor.sh — Los cambios más grandes:
-
-Actualizar comentarios: Ubuntu 24.04 → Ubuntu Server 22.04.5 LTS (el código es 100% compatible con Samba 4.15.x)
-Auto-detectar interfaz de red con ip -4 route show default | awk '{print $5}' e inyectarla en smb.conf con sed antes de copiar
-Grupos interactivos: preguntar si se usan los grupos por defecto (Financiera, Produccion, Design, RH) o si quiere definir los propios → si cambia, preguntar cuántos y sus nombres → crearlos con groupadd
-Contraseña de admin interactiva con read -sp y confirmación
-Usuarios interactivos: preguntar si quiere agregar usuarios ahora → cuántos (aparte de admin e invitado) → para cada uno: nombre, contraseña (con confirmación), grupo del NAS al que pertenece
-Los usuarios admin e invitado siempre se crean; los grupos de departamento y usuarios adicionales son configurables
-invitado siempre pertenece al grupo de invitados (grupo de solo lectura en /publico)
-Fase 2 — Clientes (paralelos)
-3. setup_cliente_arch.sh — 3 correcciones:
-
-Agregar gvfs gvfs-smb a la instalación con pacman
-Corregir UID/GID: uid=$(id -u ${SUDO_USER:-$USER}),gid=$(id -g ${SUDO_USER:-$USER})
-Agregar sección de instrucciones GUI al final: Thunar → barra de ubicación → smb://IP_SERVIDOR → pide usuario y contraseña → navega normalmente
-4. setup_cliente_ubuntu.sh (nuevo) — Basado en el de Arch:
-
-Instalar: cifs-utils smbclient gvfs-backends con apt
-Misma lógica de verificación de conectividad, creación de puntos de montaje, y comandos de montaje
-Instrucciones GUI: Nautilus → Ctrl+L → smb://IP_SERVIDOR → ingresar usuario/contraseña
-5. setup_cliente_windows.ps1 — Solo actualizar comentarios de versión (el script es funcional)
-
-Fase 3 — Launcher Python
-6. configurar.py (nuevo) — Script Python 3 puro (sin dependencias externas):
-
-Menú principal: [1] Configurar servidor  [2] Configurar cliente
-Si cliente: [1] Arch Linux  [2] Ubuntu  [3] Windows
-Para Windows: muestra las instrucciones del .ps1 (no lo puede ejecutar directamente salvo que Python esté en Windows — pero eso se documenta)
-Para Linux server/clientes: usa os.execvp('sudo', ['sudo', 'bash', 'script.sh']) → el script toma control completo de la terminal con todos sus prompts interactivos
-Detecta si el archivo del script existe antes de llamarlo; si no, muestra error claro
-Compatible con Python 3.6+ (Ubuntu 22.04 trae 3.10, Arch trae lo más reciente)
-Fase 4 — README
-7. README.md — Reescritura completa, enfoque en despliegue:
-
-Inicio rápido: python3 configurar.py → único comando para todo
-Servidor (Ubuntu Server 22.04.5 LTS): pasos con el script, qué pregunta, cómo personalizar grupos y usuarios
-Cliente Windows: cómo ejecutar el .ps1, cómo abrir el explorador → \\IP_SERVIDOR
-Cliente Arch Linux: cómo ejecutar el script, cómo abrir Thunar → smb://IP
-Cliente Ubuntu: cómo ejecutar el script, cómo abrir Nautilus → smb://IP
-Gestión de usuarios posterior: comandos para agregar/cambiar/eliminar usuarios desde el servidor
-Solución de problemas: firewall, permisos, interfaz incorrecta, SMB bloqueado
-Fase 5 — Limpieza (solo cuando todo esté validado)
-8. Eliminar: guion_manu.md, guion_dani.md, guion_santi.md, INSTRUCTIVO.md
+> Los grupos de departamento se configuran durante la instalación del servidor.
+> Los anteriores son los valores por defecto.
 
 ## Despliegue del servidor — Ubuntu Server 22.04.5 LTS
 
@@ -331,6 +290,62 @@ sudo mkdir -p /mnt/nas/publico
 sudo mount.cifs //IP_SERVIDOR/publico /mnt/nas/publico \
   -o username=invitado,vers=3.0,uid=$(id -u),gid=$(id -g),iocharset=utf8
 ```
+
+---
+
+## Desinstalar / Revertir configuración
+
+Si cometiste un error durante la configuración o simplemente quieres empezar de
+cero, cada script de limpieza revierte exactamente lo que hizo su script de setup.
+
+Desde el launcher (recomendado):
+
+```bash
+python3 configurar.py   # → opción [3] Desinstalar / Limpiar
+```
+
+O directamente:
+
+### Servidor
+
+> **ADVERTENCIA:** Esto elimina permanentemente todos los archivos en
+> `/srv/datacorp/` (archivos de todos los usuarios), todos los usuarios y grupos
+> del NAS, y desinstala Samba. **No se puede deshacer.**
+
+```bash
+sudo bash limpiar_servidor.sh
+```
+
+El script pide que escribas `CONFIRMAR` antes de borrar nada.
+Detecta automáticamente qué usuarios, grupos y departamentos existen — no
+necesitas editar nada.
+
+### Cliente Arch Linux
+
+```bash
+sudo bash limpiar_cliente_arch.sh
+```
+
+Desmonta `/mnt/nas/`, elimina el directorio y desinstala `cifs-utils`,
+`smbclient`, `gvfs` y `gvfs-smb`.
+
+### Cliente Ubuntu Desktop
+
+```bash
+sudo bash limpiar_cliente_ubuntu.sh
+```
+
+Mismo comportamiento que el de Arch, usando `apt` en lugar de `pacman`.
+
+### Cliente Windows
+
+```powershell
+# En PowerShell como Administrador:
+.\limpiar_cliente_windows.ps1
+```
+
+Elimina unidades de red mapeadas, credenciales cacheadas y revierte la clave
+`AllowInsecureGuestAuth` del registro a su valor predeterminado (`0`).
 
 ---
 

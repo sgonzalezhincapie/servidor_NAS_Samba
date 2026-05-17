@@ -97,9 +97,9 @@ def ejecutar_python_como_raiz(script):
 # ─────────────────────────────────────────────────────────────────────────────
 # Instrucciones para Windows (no se puede llamar directamente al .ps1)
 # ─────────────────────────────────────────────────────────────────────────────
-def instrucciones_windows():
+def instrucciones_windows_setup():
     limpiar()
-    titulo("CLIENTE WINDOWS — Instrucciones")
+    titulo("CLIENTE WINDOWS — Instrucciones de configuracion")
     print("  El script de Windows es un archivo PowerShell (.ps1).")
     print("  Copia el archivo setup_cliente_windows.ps1 a tu equipo Windows")
     print("  y sigue estos pasos:\n")
@@ -120,6 +120,20 @@ def instrucciones_windows():
     print("    Presiona Enter e ingresa tu usuario y contrasena.\n")
     input("  Presiona Enter para volver al menu...")
 
+
+def instrucciones_windows_limpiar():
+    limpiar()
+    titulo("CLIENTE WINDOWS — Desinstalar / Limpiar")
+    print("  Copia limpiar_cliente_windows.ps1 a tu equipo Windows y ejecuta:\n")
+    print("  PASO 1 — Abrir PowerShell como Administrador\n")
+    print("  PASO 2 — Ejecutar:")
+    print("    .\\limpiar_cliente_windows.ps1\n")
+    print("  El script eliminara:")
+    print("    - Todas las unidades de red mapeadas")
+    print("    - Credenciales cacheadas del servidor NAS")
+    print("    - La clave AllowInsecureGuestAuth del registro\n")
+    input("  Presiona Enter para volver al menu...")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Menus
 # ─────────────────────────────────────────────────────────────────────────────
@@ -138,9 +152,33 @@ def menu_cliente():
     elif sel == 2:
         ejecutar_bash("setup_cliente_ubuntu.sh")
     elif sel == 3:
-        instrucciones_windows()
+        instrucciones_windows_setup()
         menu_cliente()
-    # sel == 4: volver (no hace nada, retorna al menu principal)
+    # sel == 4: volver
+
+
+def menu_limpiar():
+    limpiar()
+    titulo("DESINSTALAR / LIMPIAR CONFIGURACION NAS")
+    print("  Selecciona que configuracion quieres revertir:\n")
+    opcion(1, "Servidor NAS",    "Detiene Samba, borra datos, usuarios y paquetes (IRREVERSIBLE)")
+    opcion(2, "Cliente Arch Linux",   "Desinstala paquetes y desmonta /mnt/nas/")
+    opcion(3, "Cliente Ubuntu",       "Desinstala paquetes y desmonta /mnt/nas/")
+    opcion(4, "Cliente Windows",      "Muestra instrucciones para el script PowerShell")
+    opcion(5, "Volver")
+    print()
+
+    sel = pedir_opcion(5)
+    if sel == 1:
+        ejecutar_bash("limpiar_servidor.sh")
+    elif sel == 2:
+        ejecutar_bash("limpiar_cliente_arch.sh")
+    elif sel == 3:
+        ejecutar_bash("limpiar_cliente_ubuntu.sh")
+    elif sel == 4:
+        instrucciones_windows_limpiar()
+        menu_limpiar()
+    # sel == 5: volver
 
 def menu_principal():
     es_windows = platform.system() == "Windows"
@@ -148,17 +186,18 @@ def menu_principal():
     while True:
         limpiar()
         titulo("CONFIGURADOR DEL SERVIDOR NAS")
-        print("  Que vas a configurar?\n")
-        opcion(1, "Servidor NAS",    "Instala y configura Samba en Ubuntu Server 22.04+")
-        opcion(2, "Cliente",          "Configura acceso al NAS desde este equipo")
-        opcion(3, "Salir")
+        print("  Que quieres hacer?\n")
+        opcion(1, "Configurar servidor NAS", "Instala y configura Samba en Ubuntu Server 22.04+")
+        opcion(2, "Configurar cliente",       "Acceso al NAS desde este equipo")
+        opcion(3, "Desinstalar / Limpiar",    "Revertir configuracion del servidor o de un cliente")
+        opcion(4, "Salir")
         print()
 
         if es_windows:
             print("  NOTA: Estas en Windows. Para configurar el servidor o un cliente Linux,")
             print("  copia los archivos .sh al equipo correspondiente y ejecutalos desde ahi.\n")
 
-        sel = pedir_opcion(3)
+        sel = pedir_opcion(4)
 
         if sel == 1:
             if es_windows:
@@ -170,11 +209,17 @@ def menu_principal():
 
         elif sel == 2:
             if es_windows:
-                instrucciones_windows()
+                instrucciones_windows_setup()
             else:
                 menu_cliente()
 
         elif sel == 3:
+            if es_windows:
+                instrucciones_windows_limpiar()
+            else:
+                menu_limpiar()
+
+        elif sel == 4:
             print("\n  Hasta luego.\n")
             sys.exit(0)
 
