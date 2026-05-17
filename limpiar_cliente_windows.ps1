@@ -19,15 +19,33 @@
 $HOST_NAS = Read-Host "  IP o nombre del servidor NAS (ej: 192.168.1.55)"
 
 Write-Host ""
-Write-Host "  Este script eliminara:" -ForegroundColor Yellow
-Write-Host "    - Todas las unidades de red mapeadas"
-Write-Host "    - Credenciales cacheadas del servidor NAS"
-Write-Host "    - La clave de registro AllowInsecureGuestAuth"
+Write-Host "  Selecciona el modo de limpieza:" -ForegroundColor White
 Write-Host ""
-$confirmacion = Read-Host "  Continuar? [s/N]"
-if ($confirmacion -notmatch "^[sS]$") {
+Write-Host "    1) Solo cambiar usuario  — Desconecta la sesion SMB activa y" -ForegroundColor White
+Write-Host "       borra las credenciales en cache. Util para probar con otro" -ForegroundColor White
+Write-Host "       usuario durante el laboratorio. NO modifica el registro." -ForegroundColor White
+Write-Host ""
+Write-Host "    2) Desinstalar todo      — Elimina unidades, credenciales y" -ForegroundColor White
+Write-Host "       revierte el registro (AllowInsecureGuestAuth = 0)." -ForegroundColor White
+Write-Host ""
+$modo = Read-Host "  Opcion [1/2]"
+if ($modo -notmatch "^[12]$") {
     Write-Host "  Operacion cancelada." -ForegroundColor Gray
     exit 0
+}
+
+if ($modo -eq "2") {
+    Write-Host ""
+    Write-Host "  Este script eliminara:" -ForegroundColor Yellow
+    Write-Host "    - Todas las unidades de red mapeadas"
+    Write-Host "    - Credenciales cacheadas del servidor NAS"
+    Write-Host "    - La clave de registro AllowInsecureGuestAuth"
+    Write-Host ""
+    $confirmacion = Read-Host "  Continuar? [s/N]"
+    if ($confirmacion -notmatch "^[sS]$") {
+        Write-Host "  Operacion cancelada." -ForegroundColor Gray
+        exit 0
+    }
 }
 Write-Host ""
 
@@ -65,6 +83,7 @@ foreach ($sufijo in @("", ":445", ":139")) {
 Write-Host ""
 
 # ─── PASO 3: REVERTIR REGISTRO (AllowInsecureGuestAuth) ──────────────────────
+if ($modo -eq "2") {
 Write-Host "[3/3] Revirtiendo configuracion del registro..." -ForegroundColor Cyan
 Write-Host ""
 
@@ -83,13 +102,21 @@ try {
     Write-Host "  ERR No se pudo modificar el registro: $_" -ForegroundColor Red
 }
 Write-Host ""
+}
 
 # ─── RESUMEN ─────────────────────────────────────────────────────────────────
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host "  LIMPIEZA COMPLETADA" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Tu equipo ya no tiene configuracion de cliente NAS."
-Write-Host "  Para volver a configurar el acceso:"
-Write-Host "    .\setup_cliente_windows.ps1"
+if ($modo -eq "1") {
+    Write-Host "  Sesion SMB cerrada. Puedes conectarte con otro usuario."
+    Write-Host "  Ejemplo:"
+    Write-Host "    net use S: \\$HOST_NAS\sistemas /user:santi Santi2026" -ForegroundColor Yellow
+    Write-Host "    net use A: \\$HOST_NAS\admin /user:admin Admin2026" -ForegroundColor Yellow
+} else {
+    Write-Host "  Tu equipo ya no tiene configuracion de cliente NAS."
+    Write-Host "  Para volver a configurar el acceso:"
+    Write-Host "    .\setup_cliente_windows.ps1"
+}
 Write-Host ""

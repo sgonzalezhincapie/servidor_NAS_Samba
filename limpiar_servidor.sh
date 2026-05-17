@@ -42,32 +42,54 @@ fi
 
 header "LIMPIEZA DEL SERVIDOR NAS"
 
-echo -e "  ${ROJO}${NEGRITA}ADVERTENCIA — Esta operacion eliminara PERMANENTEMENTE:${RESET}"
+echo "  Selecciona el modo de limpieza:"
 echo ""
-echo "    - Todos los datos en /srv/datacorp/ (archivos de los usuarios)"
-echo "    - Todos los usuarios y grupos del NAS"
-echo "    - Los paquetes de Samba, acl y attr"
-echo "    - La configuracion /etc/samba/smb.conf"
+echo "    1) Solo reiniciar configuracion  — Detiene Samba y elimina"
+echo "       /etc/samba/smb.conf. Los usuarios, grupos, datos y paquetes"
+echo "       se conservan. Util para volver a ejecutar setup_servidor.sh"
+echo "       sin borrar todo."
 echo ""
-echo -e "  ${ROJO}Esta accion NO se puede deshacer.${RESET}"
+echo "    2) Eliminar todo (IRREVERSIBLE)  — Elimina datos, usuarios, grupos,"
+echo "       paquetes y configuracion. No se puede deshacer."
 echo ""
-read -rp "  Para confirmar, escribe exactamente CONFIRMAR: " CONF
-echo ""
-
-if [ "$CONF" != "CONFIRMAR" ]; then
+read -rp "  Opcion [1/2]: " MODO
+MODO="${MODO:-1}"
+if [[ ! "$MODO" =~ ^[12]$ ]]; then
     echo "  Operacion cancelada. No se cambio nada."
     exit 0
 fi
+echo ""
+
+if [ "$MODO" = "2" ]; then
+    echo -e "  ${ROJO}${NEGRITA}ADVERTENCIA — Esta operacion eliminara PERMANENTEMENTE:${RESET}"
+    echo ""
+    echo "    - Todos los datos en /srv/datacorp/ (archivos de los usuarios)"
+    echo "    - Todos los usuarios y grupos del NAS"
+    echo "    - Los paquetes de Samba, acl y attr"
+    echo "    - La configuracion /etc/samba/smb.conf"
+    echo ""
+    echo -e "  ${ROJO}Esta accion NO se puede deshacer.${RESET}"
+    echo ""
+    read -rp "  Para confirmar, escribe exactamente CONFIRMAR: " CONF
+    echo ""
+    if [ "$CONF" != "CONFIRMAR" ]; then
+        echo "  Operacion cancelada. No se cambio nada."
+        exit 0
+    fi
+fi
 
 # ─── PASO 1: DETENER SAMBA ───────────────────────────────────────────────────
-header "1/8 — Detener Samba"
+header "1 — Detener Samba"
 
 systemctl stop smbd  2>/dev/null  && ok "smbd detenido."   || info "smbd no estaba corriendo."
 systemctl stop nmbd  2>/dev/null  && ok "nmbd detenido."   || info "nmbd no estaba corriendo."
-systemctl disable smbd 2>/dev/null && ok "smbd deshabilitado del arranque." || true
-systemctl disable nmbd 2>/dev/null && ok "nmbd deshabilitado del arranque." || true
+if [ "$MODO" = "2" ]; then
+    systemctl disable smbd 2>/dev/null && ok "smbd deshabilitado del arranque." || true
+    systemctl disable nmbd 2>/dev/null && ok "nmbd deshabilitado del arranque." || true
+fi
 
-# ─── PASO 2: DESREGISTRAR USUARIOS DE SAMBA ─────────────────────────────────
+# ─── [SOLO MODO 2] PASO 2: DESREGISTRAR USUARIOS DE SAMBA ───────────────────
+if [ "$MODO" = "2" ]; then
 header "2/8 — Desregistrar usuarios de Samba"
 
 if command -v pdbedit &>/dev/null; then
@@ -149,8 +171,10 @@ else
     info "/srv/datacorp no existe, omitiendo."
 fi
 
-# ─── PASO 7: ELIMINAR CONFIGURACION ─────────────────────────────────────────
-header "7/8 — Eliminar configuracion de Samba"
+fi  # fin bloque solo modo 2
+
+# ─── PASO 7: ELIMINAR CONFIGURACION (ambos modos) ───────────────────────────
+header "— Eliminar configuracion de Samba"
 
 [ -f "/etc/samba/smb.conf" ] \
     && rm -f /etc/samba/smb.conf \
@@ -160,7 +184,8 @@ header "7/8 — Eliminar configuracion de Samba"
 rm -f /etc/samba/smb.conf.backup.* 2>/dev/null \
     && ok "Backups de smb.conf eliminados." || true
 
-# ─── PASO 8: FIREWALL ───────────────────────────────────────────────────────
+# ─── [SOLO MODO 2] PASO 8: FIREWALL ─────────────────────────────────────────
+if [ "$MODO" = "2" ]; then
 header "8/8 — Limpiar reglas de firewall"
 
 if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "active"; then
@@ -170,13 +195,20 @@ if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "active"; then
 else
     info "UFW no esta activo, omitiendo."
 fi
+fi  # fin bloque solo modo 2
 
 echo ""
 echo -e "${VERDE}${NEGRITA}+======================================================+${RESET}"
 echo -e "${VERDE}${NEGRITA}|         LIMPIEZA COMPLETADA                          |${RESET}"
 echo -e "${VERDE}${NEGRITA}+======================================================+${RESET}"
 echo ""
-echo "  El servidor NAS ha sido completamente desconfigurado."
-echo "  Para volver a configurarlo desde cero:"
-echo "    sudo bash setup_servidor.sh"
+if [ "$MODO" = "1" ]; then
+    echo "  Configuracion de Samba eliminada. Usuarios, grupos y datos intactos."
+    echo "  Para reconfigurar el servidor desde cero:"
+    echo "    sudo bash setup_servidor.sh"
+else
+    echo "  El servidor NAS ha sido completamente desconfigurado."
+    echo "  Para volver a configurarlo desde cero:"
+    echo "    sudo bash setup_servidor.sh"
+fi
 echo ""

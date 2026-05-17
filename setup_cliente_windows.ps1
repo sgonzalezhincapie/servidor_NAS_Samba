@@ -497,6 +497,41 @@ Write-Host ""
 # SOLUCIÓN DE PROBLEMAS COMUNES EN WINDOWS
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "   CAMBIO DE USUARIO — PROBLEMA TIPICO DEL LABORATORIO" -ForegroundColor Cyan
+Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  LIMITACION DE WINDOWS: una sola sesion por servidor." -ForegroundColor Yellow
+Write-Host "  Windows mantiene UNA sesion SMB autenticada por servidor." -ForegroundColor White
+Write-Host "  Si te conectaste como 'santi' y luego intentas entrar a la" -ForegroundColor White
+Write-Host "  carpeta de admin, Windows reutiliza la sesion de santi y el" -ForegroundColor White
+Write-Host "  servidor devuelve 'Acceso denegado' aunque escribas la clave" -ForegroundColor White
+Write-Host "  correcta de admin." -ForegroundColor White
+Write-Host ""
+Write-Host "  SOLUCION — Desconectar completamente antes de cambiar de usuario:" -ForegroundColor Green
+Write-Host ""
+Write-Host "  ┌───────────────────────────────────────────────────────┐" -ForegroundColor Red
+Write-Host "  │  CAMBIAR DE USUARIO (ejecutar EN ORDEN)               │" -ForegroundColor Red
+Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor Red
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 1: Desconectar todas las unidades de red:       │" -ForegroundColor Gray
+Write-Host "  │  net use * /delete /yes                               │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 2: Borrar credenciales cacheadas del servidor:  │" -ForegroundColor Gray
+Write-Host "  │  cmdkey /delete:$IP_SERVIDOR                          │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  PASO 3: Reconectar con el nuevo usuario:             │" -ForegroundColor Gray
+Write-Host "  │  net use LETRA: \\$IP_SERVIDOR\SHARE /user:USUARIO PASS│" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  Ejemplo — cambiar a admin:                           │" -ForegroundColor Gray
+Write-Host "  │  net use * /delete /yes                               │" -ForegroundColor Yellow
+Write-Host "  │  cmdkey /delete:$IP_SERVIDOR                          │" -ForegroundColor Yellow
+Write-Host "  │  net use A: \\$IP_SERVIDOR\admin /user:admin Admin2026 │" -ForegroundColor Yellow
+Write-Host "  │                                                       │" -ForegroundColor White
+Write-Host "  │  O usa limpiar_cliente_windows.ps1 (opcion 1)         │" -ForegroundColor Gray
+Write-Host "  └───────────────────────────────────────────────────────┘" -ForegroundColor Red
+Write-Host ""
+
+Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "   SOLUCION DE PROBLEMAS EN WINDOWS" -ForegroundColor Cyan
 Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""

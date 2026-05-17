@@ -1,0 +1,6 @@
+# Prompts y configuración local del editor/agente
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
