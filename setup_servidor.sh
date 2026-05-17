@@ -1,576 +1,365 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# SCRIPT DE CONFIGURACIÓN DEL SERVIDOR NAS — DataCorp
+# SCRIPT DE CONFIGURACIÓN DEL SERVIDOR NAS
 # ═══════════════════════════════════════════════════════════════════════════════
-# Proyecto  : Comunicaciones III — Tema 3 — Laboratorio NAS con Samba
-# Integrantes: Manuela Marín Rojo, Daniel Trujillo F, Santiago González
-# Servidor  : Ubuntu 24.04 LTS (Noble Numbat)
-# Fecha     : Abril 2026
-#
-# DESCRIPCIÓN:
-#   Este script configura desde cero un servidor NAS con Samba para la empresa
-#   ficticia DataCorp. Crea la estructura de directorios, los grupos y usuarios,
-#   aplica permisos POSIX y ACLs, e instala y arranca Samba.
+# Servidor  : Ubuntu Server 22.04.5 LTS (Jammy Jellyfish) o superior
+# Protocolo : Samba / SMB2+
 #
 # USO:
 #   sudo bash setup_servidor.sh
 #
-# NOTA: Ejecutar como root (con sudo) en Ubuntu 24.04. El script se detiene
-#       ante cualquier error gracias a "set -e".
+# DESCRIPCIÓN:
+#   Configura desde cero un servidor NAS con Samba. El script es interactivo:
+#   pregunta los grupos de departamento, usuarios y contraseñas antes de aplicar
+#   ningún cambio. Crea estructura de carpetas, permisos POSIX + ACLs, instala y
+#   arranca Samba con el firewall abierto.
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Detener el script inmediatamente si algún comando falla.
-# Esto evita que un error pase desapercibido y se sigan ejecutando comandos
-# sobre un estado incorrecto.
 set -e
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 1: COMPROBACIÓN DE PRIVILEGIOS DE ROOT
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Samba, la creación de usuarios y la modificación de permisos
-# requieren privilegios de superusuario. Si no somos root, no podemos continuar.
+VERDE='\033[0;32m'
+ROJO='\033[0;31m'
+AMARILLO='\033[1;33m'
+CYAN='\033[0;36m'
+NEGRITA='\033[1m'
+RESET='\033[0m'
+
+ok()     { echo -e "    ${VERDE}checkmark${RESET} $*"; }
+err()    { echo -e "    ${ROJO}x ERROR:${RESET} $*"; }
+info()   { echo -e "    ${AMARILLO}i${RESET} $*"; }
+header() {
+    echo ""
+    echo -e "${CYAN}${NEGRITA}============================================================${RESET}"
+    echo -e "${CYAN}${NEGRITA}   $*${RESET}"
+    echo -e "${CYAN}${NEGRITA}============================================================${RESET}"
+    echo ""
+}
+
 if [ "$(id -u)" -ne 0 ]; then
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║  ERROR: Este script debe ejecutarse como root (sudo).    ║"
-    echo "║  Uso: sudo bash setup_servidor.sh                       ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo -e "${ROJO}ERROR: Este script debe ejecutarse con sudo.${RESET}"
+    echo "  Uso: sudo bash setup_servidor.sh"
     exit 1
 fi
 
-echo ""
-echo "═══════════════════════════════════════════════════════════"
-echo "   CONFIGURACIÓN DEL SERVIDOR NAS — DataCorp"
-echo "   Ubuntu 24.04 LTS + Samba"
-echo "═══════════════════════════════════════════════════════════"
+header "CONFIGURACION DEL SERVIDOR NAS"
+echo "  Este script te preguntara los grupos, usuarios y contrasenas"
+echo "  antes de configurar nada. Puedes cancelar con Ctrl+C en cualquier momento."
 echo ""
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 2: ACTUALIZACIÓN DEL SISTEMA
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Antes de instalar paquetes nuevos, actualizamos la lista de paquetes
-# disponibles (apt update). No hacemos "apt upgrade" porque puede fallar por
-# problemas ajenos a Samba (ej: configuración de GRUB, paquetes de kernel
-# retenidos) y no es necesario para nuestro laboratorio.
-echo "[1/14] Actualizando lista de paquetes..."
-apt update -y 2>&1 || true
-echo "    ✓ Lista de paquetes actualizada."
+leer_password() {
+    local VAR_NAME="$1"
+    local PROMPT="$2"
+    local PASS="" PASS2=""
+    while true; do
+        read -rsp "    ${PROMPT}: " PASS; echo ""
+        read -rsp "    Confirmar contrasena: " PASS2; echo ""
+        if [ "$PASS" != "$PASS2" ]; then
+            echo -e "    ${ROJO}Las contrasenas no coinciden.${RESET}"
+        elif [ -z "$PASS" ]; then
+            echo -e "    ${ROJO}La contrasena no puede estar vacia.${RESET}"
+        else
+            printf -v "$VAR_NAME" '%s' "$PASS"
+            break
+        fi
+    done
+}
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 3: INSTALACIÓN DE SAMBA Y HERRAMIENTAS
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Instalamos los paquetes necesarios:
-#   - samba          : el servidor de archivos (implementa el protocolo SMB/CIFS)
-#   - samba-common   : archivos de configuración compartidos (incluye smb.conf base)
-#   - smbclient      : herramienta de línea de comandos para probar conexiones SMB
-#   - acl            : herramientas para ACLs extendidas (setfacl, getfacl)
-#   - attr           : herramientas para atributos extendidos en el sistema de archivos
-#
-# NOTA: Usamos "|| true" porque dpkg puede reportar errores de paquetes rotos
-# de kernel (no relacionados con Samba). Verificamos después que Samba se instaló.
-echo "[2/14] Instalando Samba y herramientas..."
-apt install -y samba samba-common smbclient acl attr 2>&1 || true
+# ─── BLOQUE A: GRUPOS ────────────────────────────────────────────────────────
+echo -e "${NEGRITA}[A] GRUPOS DE DEPARTAMENTO (uno por VLAN/departamento)${RESET}"
+echo ""
+echo "  Grupos por defecto:"
+GRUPOS_DEFAULT=("Financiera" "Produccion" "Design" "RH")
+for i in "${!GRUPOS_DEFAULT[@]}"; do
+    echo "    $((i+1)). ${GRUPOS_DEFAULT[$i]}"
+done
+echo ""
+read -rp "  Deseas usar estos grupos? [S/n]: " RESP_GRUPOS
+RESP_GRUPOS="${RESP_GRUPOS:-S}"
 
-# Verificar que Samba realmente se instaló (independiente de errores de otros paquetes)
-if ! command -v smbd &>/dev/null; then
-    echo "    ✗ ERROR: Samba no se instaló correctamente."
-    echo "      Intenta manualmente: sudo apt install -y samba"
-    exit 1
-fi
-echo "    ✓ Samba y herramientas instaladas."
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 4: CREACIÓN DE LA ESTRUCTURA DE DIRECTORIOS
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Creamos la estructura de carpetas que simulará el sistema de archivos
-# de la empresa DataCorp. /srv es el directorio estándar en Linux para datos
-# servidos por el sistema (FTP, HTTP, Samba, etc.).
-#
-# Estructura:
-# /srv/datacorp/
-# ├── publico/               → Lectura para todos
-# ├── departamentos/
-# │   ├── contabilidad/      → Solo grupo contabilidad + administradores
-# │   └── sistemas/          → Solo grupo sistemas + administradores
-# ├── privado/               → Solo administradores
-# └── admin/                 → Solo administradores
-echo "[3/14] Creando estructura de directorios en /srv/datacorp/..."
-
-# mkdir -p crea el directorio y todos los padres necesarios que no existan.
-# Si ya existen, no da error.
-mkdir -p /srv/datacorp/publico
-mkdir -p /srv/datacorp/departamentos/contabilidad
-mkdir -p /srv/datacorp/departamentos/sistemas
-mkdir -p /srv/datacorp/privado
-mkdir -p /srv/datacorp/admin
-
-echo "    ✓ Directorios creados:"
-echo "      /srv/datacorp/publico"
-echo "      /srv/datacorp/departamentos/contabilidad"
-echo "      /srv/datacorp/departamentos/sistemas"
-echo "      /srv/datacorp/privado"
-echo "      /srv/datacorp/admin"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 5: CREACIÓN DE GRUPOS DEL SISTEMA
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: En Linux, los permisos se asignan a usuarios y a GRUPOS. Creamos
-# grupos que representan los roles (RBAC = Role-Based Access Control):
-#   - administradores : acceso total a todas las carpetas
-#   - usuarios        : acceso a carpetas de departamento
-#   - invitados       : solo lectura en /publico
-#   - contabilidad    : grupo departamental para /departamentos/contabilidad
-#   - sistemas        : grupo departamental para /departamentos/sistemas
-#
-# "groupadd" crea un nuevo grupo en /etc/group.
-# "2>/dev/null || true" evita que el script falle si el grupo ya existe.
-echo "[4/14] Creando grupos del sistema..."
-
-groupadd administradores 2>/dev/null || echo "    (grupo 'administradores' ya existe)"
-groupadd usuarios 2>/dev/null || echo "    (grupo 'usuarios' ya existe)"
-groupadd invitados 2>/dev/null || echo "    (grupo 'invitados' ya existe)"
-groupadd contabilidad 2>/dev/null || echo "    (grupo 'contabilidad' ya existe)"
-groupadd sistemas 2>/dev/null || echo "    (grupo 'sistemas' ya existe)"
-
-echo "    ✓ Grupos creados: administradores, usuarios, invitados, contabilidad, sistemas"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 6: CREACIÓN DE USUARIOS DEL SISTEMA
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Samba requiere que cada usuario Samba exista primero como usuario
-# del sistema Linux. Creamos usuarios con:
-#   --no-create-home  : no crear directorio home (no lo necesitan, son usuarios de servicio)
-#   --shell /usr/sbin/nologin : no pueden hacer login interactivo en el servidor
-#     (esto es una medida de seguridad: solo pueden autenticarse vía Samba)
-#
-# Si el usuario ya existe, el "|| true" evita que el script falle.
-echo "[5/14] Creando usuarios del sistema..."
-
-# Por qué: "id admin" verifica si el usuario existe; solo lo creamos si no existe.
-id admin &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin admin
-echo "    Creado usuario: admin"
-
-id dani &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin dani
-echo "    Creado usuario: dani"
-
-id santi &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin santi
-echo "    Creado usuario: santi"
-
-id invitado &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin invitado
-echo "    Creado usuario: invitado"
-
-echo "    ✓ Usuarios creados: admin, dani, santi, invitado"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 7: ASIGNACIÓN DE USUARIOS A GRUPOS
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Cada usuario debe pertenecer a los grupos correctos para que los
-# permisos funcionen. "usermod -aG" agrega al usuario a un grupo sin sacarlo
-# de los demás (-a = append, -G = grupo suplementario).
-echo "[6/14] Asignando usuarios a grupos..."
-
-# admin → miembro de: administradores
-# Por qué: admin es el superusuario del NAS, debe tener acceso a todo.
-usermod -aG administradores admin
-echo "    admin → administradores"
-
-# Dani → miembro de: usuarios, contabilidad
-# Por qué: dani es un empleado del departamento de contabilidad.
-usermod -aG usuarios dani
-usermod -aG contabilidad dani
-echo "    dani → usuarios, contabilidad"
-
-# Santi → miembro de: usuarios, sistemas
-# Por qué: santi es un empleado del departamento de sistemas.
-usermod -aG usuarios santi
-usermod -aG sistemas santi
-echo "    santi → usuarios, sistemas"
-
-# invitado → miembro de: invitados
-# Por qué: los invitados solo tienen acceso de lectura a /publico.
-usermod -aG invitados invitado
-echo "    invitado → invitados"
-
-echo "    ✓ Asignaciones completas."
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 8: PERMISOS POSIX EN LOS DIRECTORIOS
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Los permisos POSIX (chmod/chown) son la primera capa de control de
-# acceso. Aunque Samba tiene sus propias reglas, el sistema de archivos Linux
-# SIEMPRE aplica sus permisos primero. Si Linux dice "no tienes permiso",
-# Samba no puede hacer nada.
-#
-# Formato chmod: [propietario][grupo][otros]
-#   r=4 (leer), w=2 (escribir), x=1 (ejecutar/entrar al directorio)
-#   Ejemplo: 775 = rwxrwxr-x (propietario y grupo: todo; otros: leer+ejecutar)
-echo "[7/14] Configurando permisos POSIX..."
-
-# /srv/datacorp/ → root es dueño, el grupo administradores tiene acceso
-# Por qué: El directorio raíz del NAS debe ser propiedad de root, y el grupo
-# administradores debe poder acceder a todo el árbol.
-chown root:administradores /srv/datacorp
-chmod 755 /srv/datacorp
-
-# /publico → todos pueden leer (otros: r+x), solo administradores escriben
-# Por qué: 755 = rwxr-xr-x. El propietario (root) y grupo (administradores)
-# pueden escribir; otros solo pueden leer y listar archivos.
-chown root:administradores /srv/datacorp/publico
-chmod 775 /srv/datacorp/publico
-echo "    /publico → 775 (root:administradores)"
-
-# /departamentos → acceso para el grupo usuarios y administradores
-# Por qué: admin necesita atravesar este directorio para llegar a contabilidad/
-# y sistemas/. Usamos ACL para dar acceso a ambos grupos sin cambiar el grupo POSIX.
-chown root:usuarios /srv/datacorp/departamentos
-chmod 750 /srv/datacorp/departamentos
-# admin está en el grupo "administradores" (no en "usuarios"), así que sin esta
-# ACL no podría ni entrar a /departamentos/ para llegar a las subcarpetas.
-setfacl -m g:administradores:r-x /srv/datacorp/departamentos
-echo "    /departamentos → 750 (root:usuarios) + ACL administradores=r-x"
-
-# /departamentos/contabilidad → grupo contabilidad
-# Por qué: 2770 = rwxrws--- (el "2" al inicio activa el bit SGID).
-# SGID en directorio significa que los nuevos archivos creados aquí heredarán
-# automáticamente el grupo del directorio (contabilidad), no el grupo del
-# usuario que los crea. Esto es crucial para que todos los del departamento
-# puedan acceder a los archivos de los demás.
-chown root:contabilidad /srv/datacorp/departamentos/contabilidad
-chmod 2770 /srv/datacorp/departamentos/contabilidad
-echo "    /departamentos/contabilidad → 2770 (root:contabilidad, SGID)"
-
-# /departamentos/sistemas → grupo sistemas
-# Por qué: Misma lógica que contabilidad, pero para el departamento de sistemas.
-chown root:sistemas /srv/datacorp/departamentos/sistemas
-chmod 2770 /srv/datacorp/departamentos/sistemas
-echo "    /departamentos/sistemas → 2770 (root:sistemas, SGID)"
-
-# /privado → solo administradores
-# Por qué: 770 = rwxrwx--- Solo root (propietario) y el grupo administradores
-# pueden acceder. Nadie más.
-chown root:administradores /srv/datacorp/privado
-chmod 770 /srv/datacorp/privado
-echo "    /privado → 770 (root:administradores)"
-
-# /admin → solo administradores
-# Por qué: Igual que /privado, restringido completamente a administradores.
-chown root:administradores /srv/datacorp/admin
-chmod 770 /srv/datacorp/admin
-echo "    /admin → 770 (root:administradores)"
-
-echo "    ✓ Permisos POSIX configurados."
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 9: VERIFICAR QUE EL SISTEMA DE ARCHIVOS SOPORTA ACLs
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Las ACLs (Access Control Lists) permiten permisos más granulares
-# que los POSIX básicos (propietario/grupo/otros). La mayoría de los sistemas
-# de archivos modernos (ext4, xfs) las soportan por defecto en Ubuntu 24.04.
-# Verificamos que estén activas en la partición donde está /srv.
-echo "[8/14] Verificando soporte de ACLs..."
-
-# Por qué: "tune2fs -l" muestra las opciones del sistema de archivos.
-# Si el sistema usa ext4, buscamos "acl" en las opciones de montaje.
-# En Ubuntu 24.04 con ext4, las ACLs están habilitadas por defecto.
-PARTICION=$(df /srv | tail -1 | awk '{print $1}')
-echo "    Partición de /srv: $PARTICION"
-
-# Intentamos verificar si es ext4 y si tiene soporte ACL
-if command -v tune2fs &>/dev/null; then
-    FS_OPTIONS=$(tune2fs -l "$PARTICION" 2>/dev/null | grep "Default mount options" || true)
-    if echo "$FS_OPTIONS" | grep -q "acl"; then
-        echo "    ✓ ACLs habilitadas por defecto en el sistema de archivos."
-    else
-        echo "    ⚠ No se detectó 'acl' en las opciones por defecto."
-        echo "      En Ubuntu 24.04 con ext4, las ACLs funcionan igual (están en el kernel)."
-        echo "      Si hay problemas, agrega 'acl' a las opciones de montaje en /etc/fstab."
-    fi
+GRUPOS=()
+if [[ "$RESP_GRUPOS" =~ ^[Ss]$ ]]; then
+    GRUPOS=("${GRUPOS_DEFAULT[@]}")
+    echo -e "    ${VERDE}Grupos por defecto seleccionados.${RESET}"
 else
-    echo "    ℹ No se pudo verificar con tune2fs. Continuando (ext4 soporta ACL por defecto)."
+    while true; do
+        read -rp "  Cuantos grupos quieres crear? (minimo 1): " NUM_GRUPOS
+        [[ "$NUM_GRUPOS" =~ ^[1-9][0-9]*$ ]] && break
+        echo -e "    ${ROJO}Ingresa un numero valido mayor a 0.${RESET}"
+    done
+    echo "  Ingresa el nombre de cada grupo (sin espacios ni acentos):"
+    for ((i=1; i<=NUM_GRUPOS; i++)); do
+        while true; do
+            read -rp "    Grupo $i: " NOMBRE_GRUPO
+            if [[ "$NOMBRE_GRUPO" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                GRUPOS+=("$NOMBRE_GRUPO"); break
+            else
+                echo -e "    ${ROJO}Solo letras, numeros, guiones y guion bajo.${RESET}"
+            fi
+        done
+    done
+fi
+echo ""
+
+# ─── BLOQUE B: CONTRASENAS ADMIN E INVITADO ──────────────────────────────────
+echo -e "${NEGRITA}[B] CONTRASENAS DE USUARIOS PREDETERMINADOS${RESET}"
+echo ""
+echo "  Siempre se crean:"
+echo "  admin    => acceso total al NAS"
+echo "  invitado => solo lectura en la carpeta publica"
+echo ""
+leer_password PASS_ADMIN    "  Contrasena para admin"
+leer_password PASS_INVITADO "  Contrasena para invitado"
+echo ""
+
+# ─── BLOQUE C: USUARIOS ADICIONALES ──────────────────────────────────────────
+echo -e "${NEGRITA}[C] USUARIOS ADICIONALES${RESET}"
+echo ""
+read -rp "  Quieres agregar usuarios de departamento ahora? [S/n]: " RESP_USERS
+RESP_USERS="${RESP_USERS:-S}"
+
+NOMBRES_USERS=()
+PASSES_USERS=()
+GRUPOS_USERS=()
+
+if [[ "$RESP_USERS" =~ ^[Ss]$ ]]; then
+    while true; do
+        read -rp "  Cuantos usuarios (ademas de admin e invitado)?: " NUM_USERS
+        [[ "$NUM_USERS" =~ ^[0-9]+$ ]] && break
+        echo -e "    ${ROJO}Ingresa un numero valido (0 o mas).${RESET}"
+    done
+
+    if [ "$NUM_USERS" -gt 0 ]; then
+        echo ""
+        echo "  Grupos disponibles:"
+        for i in "${!GRUPOS[@]}"; do
+            echo "    $((i+1)). ${GRUPOS[$i]}"
+        done
+        echo ""
+        for ((i=1; i<=NUM_USERS; i++)); do
+            echo -e "  ${NEGRITA}--- Usuario $i de $NUM_USERS ---${RESET}"
+            while true; do
+                read -rp "    Nombre de usuario (minusculas): " UNAME
+                [[ "$UNAME" =~ ^[a-z_][a-z0-9_-]*$ ]] && break
+                echo -e "    ${ROJO}Solo minusculas, numeros, guiones. Debe empezar con letra.${RESET}"
+            done
+            leer_password UPASS "    Contrasena para $UNAME"
+            while true; do
+                read -rp "    A que grupo pertenece? (numero 1-${#GRUPOS[@]}): " GNUM
+                if [[ "$GNUM" =~ ^[0-9]+$ ]] && [ "$GNUM" -ge 1 ] && [ "$GNUM" -le "${#GRUPOS[@]}" ]; then
+                    UGRUPO="${GRUPOS[$((GNUM-1))]}"; break
+                fi
+                echo -e "    ${ROJO}Elige un numero entre 1 y ${#GRUPOS[@]}.${RESET}"
+            done
+            NOMBRES_USERS+=("$UNAME")
+            PASSES_USERS+=("$UPASS")
+            GRUPOS_USERS+=("$UGRUPO")
+            echo -e "    ${VERDE}${UNAME} -> grupo ${UGRUPO}${RESET}"
+            echo ""
+        done
+    fi
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 10: APLICACIÓN DE ACLs (CONTROL GRANULAR DE ACCESO)
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Los permisos POSIX básicos solo permiten asignar permisos a UN
-# propietario y UN grupo. Con ACLs podemos dar permisos a MÚLTIPLES grupos
-# en el mismo directorio. Esto es esencial para nuestro modelo RBAC.
-#
-# setfacl opciones más usadas:
-#   -R        : aplicar recursivamente a todo el contenido
-#   -m        : modificar (agregar/cambiar una regla)
-#   -d        : establecer como default (los nuevos archivos heredan esta ACL)
-#   g:grupo:rwx : dar permisos rwx al grupo especificado
-echo "[9/14] Aplicando ACLs..."
+# ─── RESUMEN ──────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${NEGRITA}+==================================================+${RESET}"
+echo -e "${NEGRITA}|       RESUMEN — SE VA A CONFIGURAR               |${RESET}"
+echo -e "${NEGRITA}+==================================================+${RESET}"
+echo ""
+echo "  Grupos de departamento:"
+for g in "${GRUPOS[@]}"; do echo "    * $g"; done
+echo ""
+echo "  Usuarios:"
+echo "    * admin    (acceso total)"
+echo "    * invitado (solo lectura publica)"
+for i in "${!NOMBRES_USERS[@]}"; do
+    echo "    * ${NOMBRES_USERS[$i]}  -> grupo ${GRUPOS_USERS[$i]}"
+done
+echo ""
+read -rp "  Confirmas la instalacion? [S/n]: " CONFIRMAR
+CONFIRMAR="${CONFIRMAR:-S}"
+if [[ ! "$CONFIRMAR" =~ ^[Ss]$ ]]; then
+    echo "  Operacion cancelada."
+    exit 0
+fi
 
-# ── /publico ──
-# Por qué: Todos pueden leer. Los administradores pueden escribir.
-# Los usuarios e invitados solo pueden leer y listar (r-x).
+# ═══════════════════════════════════════════════════════════════════════════════
+# INSTALACION
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Primero limpiamos ACLs existentes para empezar limpio
+header "1/10 — Actualizar lista de paquetes"
+apt update -y 2>&1 | tail -1 || true
+echo -e "    ${VERDE}Lista actualizada.${RESET}"
+
+header "2/10 — Instalar Samba y herramientas"
+DEBIAN_FRONTEND=noninteractive apt install -y samba samba-common smbclient acl attr 2>&1 | tail -5 || true
+if ! command -v smbd &>/dev/null; then
+    echo -e "    ${ROJO}ERROR: Samba no se instalo correctamente. Intenta: sudo apt install -y samba${RESET}"
+    exit 1
+fi
+echo -e "    ${VERDE}Samba instalado: $(smbd --version)${RESET}"
+
+header "3/10 — Detectar interfaz de red"
+INTERFAZ=$(ip -4 route show default 2>/dev/null | awk '{print $5}' | head -1)
+if [ -z "$INTERFAZ" ]; then
+    echo ""
+    echo "  No se detecto interfaz automaticamente. Interfaces disponibles:"
+    ip -4 addr show | grep -E '^[0-9]+:' | awk -F': ' '{print "    *", $2}'
+    echo ""
+    read -rp "  Ingresa el nombre de la interfaz de red (ej: eth0, ens3): " INTERFAZ
+fi
+echo -e "    ${VERDE}Interfaz de red: ${INTERFAZ}${RESET}"
+
+header "4/10 — Crear estructura de directorios"
+mkdir -p /srv/datacorp/publico /srv/datacorp/privado /srv/datacorp/admin
+for g in "${GRUPOS[@]}"; do
+    GLOW=$(echo "$g" | tr '[:upper:]' '[:lower:]')
+    mkdir -p "/srv/datacorp/departamentos/${GLOW}"
+    echo -e "    ${VERDE}Creado: /srv/datacorp/departamentos/${GLOW}${RESET}"
+done
+echo -e "    ${VERDE}Carpetas base: publico, privado, admin${RESET}"
+
+header "5/10 — Crear grupos del sistema"
+groupadd administradores 2>/dev/null || true
+groupadd invitados       2>/dev/null || true
+groupadd usuarios        2>/dev/null || true
+for g in "${GRUPOS[@]}"; do
+    GLOW=$(echo "$g" | tr '[:upper:]' '[:lower:]')
+    groupadd "$GLOW" 2>/dev/null || true
+    echo -e "    ${VERDE}Grupo: $GLOW${RESET}"
+done
+
+header "6/10 — Crear usuarios y asignar grupos"
+id admin    &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin admin
+id invitado &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin invitado
+usermod -aG administradores admin
+usermod -aG invitados invitado
+echo -e "    ${VERDE}admin -> administradores${RESET}"
+echo -e "    ${VERDE}invitado -> invitados${RESET}"
+
+for i in "${!NOMBRES_USERS[@]}"; do
+    UNAME="${NOMBRES_USERS[$i]}"
+    UGRUPO="${GRUPOS_USERS[$i]}"
+    UGLOW=$(echo "$UGRUPO" | tr '[:upper:]' '[:lower:]')
+    id "$UNAME" &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin "$UNAME"
+    usermod -aG usuarios "$UNAME"
+    usermod -aG "$UGLOW" "$UNAME"
+    echo -e "    ${VERDE}${UNAME} -> usuarios, ${UGLOW}${RESET}"
+done
+
+header "7/10 — Permisos POSIX"
+chown root:administradores /srv/datacorp && chmod 755 /srv/datacorp
+chown root:administradores /srv/datacorp/publico && chmod 775 /srv/datacorp/publico
+echo -e "    ${VERDE}/publico -> 775${RESET}"
+chown root:usuarios /srv/datacorp/departamentos && chmod 750 /srv/datacorp/departamentos
+setfacl -m g:administradores:r-x /srv/datacorp/departamentos
+echo -e "    ${VERDE}/departamentos -> 750 + ACL admin=r-x${RESET}"
+for g in "${GRUPOS[@]}"; do
+    GLOW=$(echo "$g" | tr '[:upper:]' '[:lower:]')
+    chown root:"$GLOW" "/srv/datacorp/departamentos/${GLOW}"
+    chmod 2770 "/srv/datacorp/departamentos/${GLOW}"
+    echo -e "    ${VERDE}/departamentos/${GLOW} -> 2770 SGID${RESET}"
+done
+chown root:administradores /srv/datacorp/privado && chmod 770 /srv/datacorp/privado
+chown root:administradores /srv/datacorp/admin   && chmod 770 /srv/datacorp/admin
+echo -e "    ${VERDE}/privado y /admin -> 770${RESET}"
+
+header "8/10 — Aplicar ACLs"
 setfacl -R -b /srv/datacorp/publico
-
-# ACLs en /publico: administradores escriben, usuarios e invitados solo leen
 setfacl -R -m g:administradores:rwx /srv/datacorp/publico
 setfacl -R -m g:usuarios:r-x /srv/datacorp/publico
 setfacl -R -m g:invitados:r-x /srv/datacorp/publico
-# ACLs por defecto: los nuevos archivos creados aquí heredan estas reglas
 setfacl -d -m g:administradores:rwx /srv/datacorp/publico
 setfacl -d -m g:usuarios:r-x /srv/datacorp/publico
 setfacl -d -m g:invitados:r-x /srv/datacorp/publico
-echo "    /publico → ACLs: admin=rwx, usuarios=r-x, invitados=r-x"
+echo -e "    ${VERDE}/publico -> admin=rwx, usuarios=r-x, invitados=r-x${RESET}"
 
-# ── /departamentos/contabilidad ──
-# Por qué: Los del grupo contabilidad y administradores pueden leer+escribir.
-# Los demás usuarios no tienen acceso (lo controla Samba y POSIX).
-setfacl -R -b /srv/datacorp/departamentos/contabilidad
-setfacl -R -m g:administradores:rwx /srv/datacorp/departamentos/contabilidad
-setfacl -R -m g:contabilidad:rwx /srv/datacorp/departamentos/contabilidad
-setfacl -d -m g:administradores:rwx /srv/datacorp/departamentos/contabilidad
-setfacl -d -m g:contabilidad:rwx /srv/datacorp/departamentos/contabilidad
-echo "    /departamentos/contabilidad → ACLs: admin=rwx, contabilidad=rwx"
+for g in "${GRUPOS[@]}"; do
+    GLOW=$(echo "$g" | tr '[:upper:]' '[:lower:]')
+    DPATH="/srv/datacorp/departamentos/${GLOW}"
+    setfacl -R -b "$DPATH"
+    setfacl -R -m g:administradores:rwx "$DPATH"
+    setfacl -R -m "g:${GLOW}:rwx" "$DPATH"
+    setfacl -d -m g:administradores:rwx "$DPATH"
+    setfacl -d -m "g:${GLOW}:rwx" "$DPATH"
+    echo -e "    ${VERDE}/departamentos/${GLOW} -> admin=rwx, ${GLOW}=rwx${RESET}"
+done
 
-# ── /departamentos/sistemas ──
-# Por qué: Los del grupo sistemas y administradores pueden leer+escribir.
-setfacl -R -b /srv/datacorp/departamentos/sistemas
-setfacl -R -m g:administradores:rwx /srv/datacorp/departamentos/sistemas
-setfacl -R -m g:sistemas:rwx /srv/datacorp/departamentos/sistemas
-setfacl -d -m g:administradores:rwx /srv/datacorp/departamentos/sistemas
-setfacl -d -m g:sistemas:rwx /srv/datacorp/departamentos/sistemas
-echo "    /departamentos/sistemas → ACLs: admin=rwx, sistemas=rwx"
-
-# ── /privado ──
-# Por qué: Solo administradores. ACLs refuerzan lo que ya dice chmod 770.
-setfacl -R -b /srv/datacorp/privado
-setfacl -R -m g:administradores:rwx /srv/datacorp/privado
+setfacl -R -b /srv/datacorp/privado && setfacl -R -m g:administradores:rwx /srv/datacorp/privado
 setfacl -d -m g:administradores:rwx /srv/datacorp/privado
-echo "    /privado → ACLs: admin=rwx"
-
-# ── /admin ──
-# Por qué: Solo administradores. Igual que /privado.
-setfacl -R -b /srv/datacorp/admin
-setfacl -R -m g:administradores:rwx /srv/datacorp/admin
+setfacl -R -b /srv/datacorp/admin   && setfacl -R -m g:administradores:rwx /srv/datacorp/admin
 setfacl -d -m g:administradores:rwx /srv/datacorp/admin
-echo "    /admin → ACLs: admin=rwx"
+echo -e "    ${VERDE}/privado y /admin -> admin=rwx${RESET}"
 
-echo "    ✓ ACLs aplicadas correctamente."
+header "9/10 — Registrar usuarios en Samba"
+(echo "$PASS_ADMIN";    echo "$PASS_ADMIN")    | smbpasswd -s -a admin;    smbpasswd -e admin
+echo -e "    ${VERDE}admin registrado.${RESET}"
+(echo "$PASS_INVITADO"; echo "$PASS_INVITADO") | smbpasswd -s -a invitado; smbpasswd -e invitado
+echo -e "    ${VERDE}invitado registrado.${RESET}"
+for i in "${!NOMBRES_USERS[@]}"; do
+    UNAME="${NOMBRES_USERS[$i]}"; UPASS="${PASSES_USERS[$i]}"
+    (echo "$UPASS"; echo "$UPASS") | smbpasswd -s -a "$UNAME"; smbpasswd -e "$UNAME"
+    echo -e "    ${VERDE}${UNAME} registrado.${RESET}"
+done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 11: CREACIÓN DE USUARIOS EN SAMBA
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Samba mantiene su PROPIA base de datos de contraseñas, separada de
-# la de Linux. Un usuario puede existir en Linux pero no en Samba (y viceversa,
-# aunque no es recomendable). Debemos agregar cada usuario a Samba con
-# smbpasswd -a (add).
-#
-# NOTA IMPORTANTE: Las contraseñas aquí son de ejemplo para un laboratorio.
-# En un entorno real, NUNCA hardcodees contraseñas en scripts.
-echo "[10/14] Creando usuarios en Samba..."
-
-# Por qué: "(echo 'pass'; echo 'pass')" envía la contraseña dos veces
-# (una para "New SMB password" y otra para "Retype new SMB password")
-# sin necesidad de interacción manual.
-
-# NOTA: Cambiar en producción
-(echo "Admin2026"; echo "Admin2026") | smbpasswd -s -a admin
-echo "    Usuario Samba creado: admin (contraseña: Admin2026)"
-
-# NOTA: Cambiar en producción
-(echo "Dani2026"; echo "Dani2026") | smbpasswd -s -a dani
-echo "    Usuario Samba creado: dani (contraseña: Dani2026)"
-
-# NOTA: Cambiar en producción
-(echo "Santi2026"; echo "Santi2026") | smbpasswd -s -a santi
-echo "    Usuario Samba creado: santi (contraseña: Santi2026)"
-
-# NOTA: Cambiar en producción
-(echo "Invitado2026"; echo "Invitado2026") | smbpasswd -s -a invitado
-echo "    Usuario Samba creado: invitado (contraseña: Invitado2026)"
-
-# Por qué: Habilitamos cada usuario para que pueda autenticarse en Samba.
-smbpasswd -e admin
-smbpasswd -e dani
-smbpasswd -e santi
-smbpasswd -e invitado
-
-echo "    ✓ Usuarios Samba creados y habilitados."
-echo ""
-echo "    ┌──────────────────────────────────────────────┐"
-echo "    │  CONTRASEÑAS DE EJEMPLO (CAMBIAR EN PROD.)   │"
-echo "    ├──────────────┬───────────────────────────────┤"
-echo "    │ admin        │ Admin2026                     │"
-echo "    │ dani         │ Dani2026                      │"
-echo "    │ santi        │ Santi2026                     │"
-echo "    │ invitado     │ Invitado2026                  │"
-echo "    └──────────────┴───────────────────────────────┘"
-echo ""
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 12: INSTALAR ARCHIVO DE CONFIGURACIÓN smb.conf
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Hacemos una copia de respaldo del smb.conf original antes de
-# reemplazarlo con el nuestro. Si algo sale mal, podemos restaurarlo.
-echo "[11/14] Instalando archivo smb.conf..."
-
-# Backup del archivo original
-if [ -f /etc/samba/smb.conf ]; then
-    cp /etc/samba/smb.conf /etc/samba/smb.conf.backup.$(date +%Y%m%d_%H%M%S)
-    echo "    Backup creado: /etc/samba/smb.conf.backup.$(date +%Y%m%d_%H%M%S)"
-fi
-
-# Por qué: Verificamos si existe nuestro smb.conf personalizado en el mismo
-# directorio que este script. Si no existe, advertimos al usuario.
+header "10/10 — Instalar smb.conf y arrancar Samba"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/smb.conf" ]; then
-    cp "$SCRIPT_DIR/smb.conf" /etc/samba/smb.conf
-    echo "    ✓ smb.conf copiado desde $SCRIPT_DIR/smb.conf"
-else
-    echo "    ⚠ ADVERTENCIA: No se encontró smb.conf en $SCRIPT_DIR"
-    echo "      Debes copiar manualmente el archivo smb.conf a /etc/samba/smb.conf"
-    echo "      antes de iniciar Samba."
+if [ ! -f "$SCRIPT_DIR/smb.conf" ]; then
+    echo -e "    ${ROJO}ERROR: No se encontro smb.conf en $SCRIPT_DIR${RESET}"
+    exit 1
 fi
+[ -f /etc/samba/smb.conf ] && cp /etc/samba/smb.conf "/etc/samba/smb.conf.backup.$(date +%Y%m%d_%H%M%S)"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 13: HABILITAR Y ARRANCAR SERVICIOS DE SAMBA
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Samba usa dos servicios:
-#   - smbd: el demonio principal que sirve archivos y gestiona autenticación SMB
-#   - nmbd: el demonio de resolución de nombres NetBIOS (permite que los
-#           clientes encuentren el servidor por nombre en la red local)
-#
-# "systemctl enable" hace que el servicio se inicie automáticamente al arrancar.
-# "systemctl restart" inicia (o reinicia) el servicio ahora mismo.
-echo "[12/14] Habilitando y arrancando servicios de Samba..."
+# Inyectar la interfaz detectada
+sed "s|<INTERFAZ_RED>|${INTERFAZ}|g" "$SCRIPT_DIR/smb.conf" > /etc/samba/smb.conf
+echo -e "    ${VERDE}smb.conf instalado con interfaz '${INTERFAZ}'.${RESET}"
 
-# Por qué: enable = arrancar automáticamente en cada inicio del sistema
-systemctl enable smbd
-systemctl enable nmbd
+# Agregar shares de departamento generados dinamicamente
+cat >> /etc/samba/smb.conf << 'SHARES_MARK'
 
-# Por qué: restart = (re)iniciar ahora para aplicar la configuración
-systemctl restart smbd
-echo "    ✓ smbd habilitado e iniciado."
+# === SHARES DE DEPARTAMENTOS (generados por setup_servidor.sh) ===
+SHARES_MARK
 
-# Por qué: nmbd (resolución de nombres NetBIOS) puede fallar por timeout en
-# instalaciones minimizadas de Ubuntu Server o en máquinas virtuales con
-# recursos limitados. Esto NO afecta al servicio de archivos (smbd), ya que
-# nmbd solo permite encontrar el servidor por nombre (ej: \\DATACORP) en vez
-# de por IP. Como nos conectamos por IP directamente, nmbd es opcional.
-if systemctl restart nmbd 2>/dev/null; then
-    echo "    ✓ nmbd habilitado e iniciado."
-else
-    echo "    ⚠ nmbd no pudo iniciarse (timeout o no disponible)."
-    echo "      Esto NO afecta el funcionamiento del servidor de archivos."
-    echo "      nmbd solo se usa para resolución de nombres NetBIOS."
-    echo "      Los clientes pueden conectarse normalmente usando la IP."
-fi
+for g in "${GRUPOS[@]}"; do
+    GLOW=$(echo "$g" | tr '[:upper:]' '[:lower:]')
+    printf '\n[%s]\n   comment = Departamento %s\n   path = /srv/datacorp/departamentos/%s\n   browseable = yes\n   writable = yes\n   guest ok = no\n   valid users = @%s @administradores\n   write list = @%s @administradores\n   force group = %s\n   create mask = 0660\n   directory mask = 0770\n' \
+        "$GLOW" "$g" "$GLOW" "$GLOW" "$GLOW" "$GLOW" >> /etc/samba/smb.conf
+    echo -e "    ${VERDE}Share [${GLOW}] generado.${RESET}"
+done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 14: CONFIGURACIÓN DEL FIREWALL
-# ─────────────────────────────────────────────────────────────────────────────
-# Por qué: Ubuntu 24.04 puede tener UFW (Uncomplicated Firewall) activo.
-# Si el firewall está bloqueando los puertos de Samba (445/TCP y 139/TCP),
-# los clientes no podrán conectarse. "ufw allow samba" abre los puertos
-# necesarios automáticamente.
-echo "[13/14] Configurando firewall..."
+testparm -s &>/dev/null && echo -e "    ${VERDE}smb.conf validado sin errores.${RESET}" || \
+    echo -e "    ${AMARILLO}Advertencia en testparm. Verifica con: sudo testparm -s${RESET}"
 
-# Por qué: Solo configuramos UFW si está instalado y activo
-if command -v ufw &>/dev/null; then
+if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "active"; then
     ufw allow samba
-    echo "    ✓ Regla de firewall agregada: ufw allow samba"
-    echo "    Puertos abiertos: 137/UDP, 138/UDP, 139/TCP, 445/TCP"
+    echo -e "    ${VERDE}UFW: puertos de Samba abiertos.${RESET}"
 else
-    echo "    ℹ UFW no está instalado o activo. Si usas otro firewall,"
-    echo "      asegúrate de abrir los puertos: 137/UDP, 138/UDP, 139/TCP, 445/TCP"
+    echo -e "    ${AMARILLO}UFW no esta activo. Si usas otro firewall, abre los puertos 139/TCP y 445/TCP.${RESET}"
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PASO 15: VERIFICACIÓN FINAL
-# ─────────────────────────────────────────────────────────────────────────────
-echo "[14/14] Ejecutando verificaciones finales..."
-echo ""
+systemctl enable smbd nmbd &>/dev/null
+systemctl restart smbd && echo -e "    ${VERDE}smbd activo.${RESET}"
+systemctl restart nmbd 2>/dev/null && echo -e "    ${VERDE}nmbd activo.${RESET}" || \
+    echo -e "    ${AMARILLO}nmbd no pudo iniciarse (no afecta el servicio; los clientes se conectan por IP).${RESET}"
 
-# === VERIFICACIÓN ===
+IP_ACTUAL=$(ip -4 addr show "$INTERFAZ" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
 
-echo "─── Verificación 1: Estado de los servicios ───"
-# Por qué: Comprobamos que smbd y nmbd están corriendo
-systemctl is-active smbd && echo "    ✓ smbd está activo" || echo "    ✗ smbd NO está activo"
-systemctl is-active nmbd && echo "    ✓ nmbd está activo" || echo "    ✗ nmbd NO está activo"
 echo ""
-
-echo "─── Verificación 2: testparm (validar smb.conf) ───"
-# Por qué: testparm verifica la sintaxis del archivo smb.conf y muestra errores.
-# Es la forma oficial de validar la configuración de Samba.
-testparm -s 2>&1 | head -30
+echo -e "${VERDE}${NEGRITA}+======================================================+${RESET}"
+echo -e "${VERDE}${NEGRITA}|         SERVIDOR NAS LISTO                           |${RESET}"
+echo -e "${VERDE}${NEGRITA}+======================================================+${RESET}"
 echo ""
-
-echo "─── Verificación 3: Recursos compartidos visibles ───"
-# Por qué: smbclient -L lista los shares disponibles en el servidor.
-# -N = sin contraseña (conexión anónima, solo para ver la lista).
-smbclient -L localhost -N 2>&1 || echo "    (Puede mostrar un error de autenticación, es normal con 'map to guest = bad user')"
+echo "  IP del servidor: ${IP_ACTUAL:-'ejecuta: ip -4 addr show'}"
 echo ""
-
-echo "─── Verificación 4: Estructura de directorios ───"
-# Por qué: Verificamos que toda la estructura se creó correctamente
-ls -la /srv/datacorp/
+echo "  Comparte esta IP con los clientes:"
+echo "    Windows     -> abrir Explorador y escribir:  \\\\${IP_ACTUAL:-IP_SERVIDOR}"
+echo "    Arch/Ubuntu -> abrir gestor de archivos y escribir: smb://${IP_ACTUAL:-IP_SERVIDOR}"
 echo ""
-ls -la /srv/datacorp/departamentos/
+echo "  Comandos utiles de administracion:"
+echo "  - Agregar usuario:"
+echo "      sudo useradd --no-create-home --shell /usr/sbin/nologin NOMBRE"
+echo "      sudo usermod -aG usuarios NOMBRE && sudo usermod -aG GRUPO NOMBRE"
+echo "      sudo smbpasswd -a NOMBRE"
+echo "  - Cambiar contrasena:  sudo smbpasswd NOMBRE"
+echo "  - Ver usuarios Samba:  sudo pdbedit -L"
+echo "  - Verificar permisos:  sudo bash verificacion_permisos.sh"
 echo ""
-
-echo "─── Verificación 5: ACLs aplicadas ───"
-# Por qué: getfacl muestra las ACLs de cada directorio
-echo "ACLs de /publico:"
-getfacl /srv/datacorp/publico
-echo ""
-echo "ACLs de /departamentos/contabilidad:"
-getfacl /srv/datacorp/departamentos/contabilidad
-echo ""
-
-echo "─── Verificación 6: Usuarios de Samba ───"
-# Por qué: pdbedit -L lista todos los usuarios registrados en Samba
-pdbedit -L
-echo ""
-
-echo "─── Verificación 7: Grupos y miembros ───"
-# Por qué: Verificamos que los usuarios estén en los grupos correctos
-echo "Grupo administradores:"
-getent group administradores
-echo "Grupo usuarios:"
-getent group usuarios
-echo "Grupo invitados:"
-getent group invitados
-echo "Grupo contabilidad:"
-getent group contabilidad
-echo "Grupo sistemas:"
-getent group sistemas
-echo ""
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RESUMEN FINAL
-# ─────────────────────────────────────────────────────────────────────────────
-echo ""
-echo "═══════════════════════════════════════════════════════════"
-echo "   CONFIGURACIÓN COMPLETADA EXITOSAMENTE"
-echo "═══════════════════════════════════════════════════════════"
-echo ""
-echo "   Resumen de lo configurado:"
-echo "   ─────────────────────────────────────────────────────"
-echo "   ✓ Sistema actualizado"
-echo "   ✓ Samba instalado ($(smbd --version))"
-echo "   ✓ Estructura de directorios creada en /srv/datacorp/"
-echo "   ✓ 5 grupos creados: administradores, usuarios, invitados,"
-echo "     contabilidad, sistemas"
-echo "   ✓ 4 usuarios creados: admin, dani, santi, invitado"
-echo "   ✓ Permisos POSIX y ACLs configurados"
-echo "   ✓ Usuarios registrados en Samba"
-echo "   ✓ Servicios smbd y nmbd activos y habilitados"
-echo "   ✓ Firewall configurado (si aplica)"
-echo ""
-echo "   NOTA: Comunica la IP del servidor a Santiago y Daniel"
-echo "   para que la configuren en sus scripts de cliente."
-echo ""
-echo "   IP actual del servidor (DHCP):"
-ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1'
-echo ""
-echo "   Interfaz de red detectada:"
-ip -4 route show default | awk '{print $5}'
-echo ""
-echo "═══════════════════════════════════════════════════════════"

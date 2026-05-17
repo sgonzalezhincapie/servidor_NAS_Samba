@@ -1,10 +1,8 @@
 ﻿# ═══════════════════════════════════════════════════════════════════════════════
 # SCRIPT DE CONFIGURACIÓN DEL CLIENTE — Windows 10/11
 # ═══════════════════════════════════════════════════════════════════════════════
-# Proyecto  : Comunicaciones III — Tema 3 — Laboratorio NAS con Samba
-# Integrantes: Manuela Marín Rojo, Daniel Trujillo F, Santiago González
 # Cliente   : Windows 10 / Windows 11
-# Fecha     : Abril 2026
+# Protocolo : SMB nativo de Windows (no requiere instalar nada)
 #
 # DESCRIPCIÓN:
 #   Este script de PowerShell configura un cliente Windows para acceder a los
@@ -459,10 +457,10 @@ Write-Host "  │  MAPEO PERSISTENTE                                    │" -Fo
 Write-Host "  ├───────────────────────────────────────────────────────┤" -ForegroundColor White
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # Publico (persistente):                             │" -ForegroundColor Gray
-Write-Host "  │  net use P: \\$IP_SERVIDOR\publico /user:guest """" /persistent:yes" -ForegroundColor Yellow
+Write-Host "  │  net use P: \\$IP_SERVIDOR\publico /user:invitado PASS /persistent:yes" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
-Write-Host "  │  # Contabilidad (persistente, como dani):             │" -ForegroundColor Gray
-Write-Host "  │  net use K: \\$IP_SERVIDOR\contabilidad /user:dani Dani2026 /persistent:yes" -ForegroundColor Yellow
+Write-Host "  │  # Departamento (reemplaza SHARE, USUARIO y PASS):    │" -ForegroundColor Gray
+Write-Host "  │  net use D: \\$IP_SERVIDOR\SHARE /user:USUARIO PASS /persistent:yes" -ForegroundColor Yellow
 Write-Host "  │                                                       │" -ForegroundColor White
 Write-Host "  │  # NOTA: Windows guardara las credenciales en el      │" -ForegroundColor Gray
 Write-Host "  │  # Administrador de credenciales de Windows.          │" -ForegroundColor Gray
@@ -489,11 +487,10 @@ Write-Host "  7. Puedes hacer clic derecho en una carpeta y seleccionar" -Foregr
 Write-Host "     'Conectar a unidad de red' para mapearla permanentemente" -ForegroundColor White
 Write-Host ""
 Write-Host "  Para acceder a un share especifico directamente:" -ForegroundColor White
-Write-Host "     \\$IP_SERVIDOR\publico       (sin contrasena)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\contabilidad  (usuario: dani)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\sistemas      (usuario: santi)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\privado       (usuario: admin)" -ForegroundColor Yellow
-Write-Host "     \\$IP_SERVIDOR\admin         (usuario: admin, share oculto)" -ForegroundColor Yellow
+  Write-Host "     \\$IP_SERVIDOR\publico         (usuario: invitado, lectura)" -ForegroundColor Yellow
+  Write-Host "     \\$IP_SERVIDOR\NOMBRE_DEPTO    (usuario: tu usuario, R+W)" -ForegroundColor Yellow
+  Write-Host "     \\$IP_SERVIDOR\privado          (usuario: admin)" -ForegroundColor Yellow
+  Write-Host "     \\$IP_SERVIDOR\admin            (usuario: admin, share oculto)" -ForegroundColor Yellow
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────

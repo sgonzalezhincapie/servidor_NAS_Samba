@@ -1,12 +1,12 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# SCRIPT DE CONFIGURACION DEL CLIENTE — Arch Linux
+# SCRIPT DE CONFIGURACION DEL CLIENTE — Ubuntu Desktop
 # ═══════════════════════════════════════════════════════════════════════════════
-# Cliente   : Arch Linux
+# Cliente   : Ubuntu Desktop 20.04 / 22.04 / 24.04 LTS
 # Protocolo : Samba / SMB2+
 #
 # USO:
-#   sudo bash setup_cliente_arch.sh
+#   sudo bash setup_cliente_ubuntu.sh
 #
 # ANTES DE EJECUTAR:
 #   Edita la variable IP_SERVIDOR con la IP del servidor NAS.
@@ -28,7 +28,7 @@ IP_SERVIDOR="192.168.1.55"
 # ─── VERIFICACIONES INICIALES ────────────────────────────────────────────────
 if [ "$(id -u)" -ne 0 ]; then
     echo -e "${ROJO}ERROR: Este script debe ejecutarse con sudo.${RESET}"
-    echo "  Uso: sudo bash setup_cliente_arch.sh"
+    echo "  Uso: sudo bash setup_cliente_ubuntu.sh"
     exit 1
 fi
 
@@ -44,7 +44,7 @@ GID_REAL=$(id -g "$USUARIO_REAL" 2>/dev/null || echo "1000")
 
 echo ""
 echo -e "${CYAN}${NEGRITA}============================================================${RESET}"
-echo -e "${CYAN}${NEGRITA}   CONFIGURACION CLIENTE NAS — Arch Linux${RESET}"
+echo -e "${CYAN}${NEGRITA}   CONFIGURACION CLIENTE NAS — Ubuntu${RESET}"
 echo -e "${CYAN}${NEGRITA}   Servidor: $IP_SERVIDOR | Usuario local: $USUARIO_REAL${RESET}"
 echo -e "${CYAN}${NEGRITA}============================================================${RESET}"
 echo ""
@@ -52,13 +52,13 @@ echo ""
 # ─── PASO 1: INSTALAR PAQUETES ───────────────────────────────────────────────
 echo -e "${NEGRITA}[1/4] Instalando paquetes necesarios...${RESET}"
 echo ""
-# cifs-utils : permite montar shares SMB como directorios locales (mount.cifs)
-# smbclient  : herramienta de terminal para explorar el servidor
-# gvfs       : capa de abstraccion de sistemas de archivos virtuales para GTK
-# gvfs-smb   : complemento de gvfs que permite acceder a shares SMB desde
-#              el explorador de archivos Thunar (y otros gestores GTK)
-pacman -S --needed --noconfirm cifs-utils smbclient gvfs gvfs-smb
-echo -e "    ${VERDE}cifs-utils, smbclient, gvfs, gvfs-smb instalados.${RESET}"
+# cifs-utils    : permite montar shares SMB como directorios locales (mount.cifs)
+# smbclient     : herramienta de terminal para explorar el servidor
+# gvfs-backends : paquete de Ubuntu que incluye soporte SMB para Nautilus
+#                 (el gestor de archivos de GNOME). Permite acceder a
+#                 smb:// directamente desde el explorador de archivos.
+DEBIAN_FRONTEND=noninteractive apt install -y cifs-utils smbclient gvfs-backends 2>&1 | tail -5 || true
+echo -e "    ${VERDE}cifs-utils, smbclient, gvfs-backends instalados.${RESET}"
 echo ""
 
 # ─── PASO 2: VERIFICAR CONECTIVIDAD ──────────────────────────────────────────
@@ -68,7 +68,7 @@ if ping -c 3 -W 2 "$IP_SERVIDOR" &>/dev/null; then
     echo -e "    ${VERDE}El servidor responde al ping.${RESET}"
 else
     echo -e "    ${AMARILLO}El servidor no responde al ping.${RESET}"
-    echo "    Puede ser el firewall del servidor o que no esteis en la misma red."
+    echo "    Verifica que el servidor esta encendido y en la misma red."
     echo "    Continuando de todas formas..."
 fi
 
@@ -82,7 +82,7 @@ fi
 echo ""
 
 # ─── PASO 3: CREAR PUNTOS DE MONTAJE ─────────────────────────────────────────
-echo -e "${NEGRITA}[3/4] Creando puntos de montaje en /mnt/nas/...${RESET}"
+echo -e "${NEGRITA}[3/4] Creando directorio base de montajes...${RESET}"
 echo ""
 mkdir -p /mnt/nas
 echo -e "    ${VERDE}/mnt/nas/ listo como raiz de montajes.${RESET}"
@@ -92,21 +92,26 @@ echo ""
 echo -e "${NEGRITA}[4/4] Como acceder al NAS${RESET}"
 echo ""
 
-echo -e "${CYAN}${NEGRITA}  OPCION A — Explorador de archivos Thunar (recomendado, sin comandos)${RESET}"
+echo -e "${CYAN}${NEGRITA}  OPCION A — Nautilus (gestor de archivos de GNOME) — sin comandos${RESET}"
 echo ""
-echo "  1. Abre Thunar."
-echo "  2. En la barra de ubicacion (atajo: Ctrl+L) escribe:"
+echo "  METODO 1 — Barra de ubicacion:"
+echo "  1. Abre el gestor de archivos (Nautilus)."
+echo "  2. Presiona Ctrl+L para abrir la barra de ubicacion."
+echo "  3. Escribe:"
 echo -e "       ${NEGRITA}smb://$IP_SERVIDOR${RESET}"
-echo "  3. Thunar pedira usuario y contrasena."
+echo "  4. Nautilus pedira usuario y contrasena."
 echo "     Ingresa las credenciales que te dio el administrador del servidor."
-echo "  4. Navega las carpetas como si fueran locales."
 echo ""
-echo "  Si no ves la barra de ubicacion: Ve al menu Ver -> Mostrar barra de ubicacion"
+echo "  METODO 2 — Otras ubicaciones:"
+echo "  1. En Nautilus, clic en 'Otras ubicaciones' (barra lateral izquierda)."
+echo "  2. En la barra inferior 'Conectar al servidor' escribe:"
+echo -e "       ${NEGRITA}smb://$IP_SERVIDOR${RESET}"
+echo "  3. Presiona Enter e ingresa tus credenciales."
 echo ""
 
 echo -e "${CYAN}${NEGRITA}  OPCION B — Terminal (montaje manual con mount.cifs)${RESET}"
 echo ""
-echo "  Montar la carpeta publica (lectura, con usuario invitado):"
+echo "  Montar la carpeta publica (lectura, usuario invitado):"
 echo "    sudo mkdir -p /mnt/nas/publico"
 echo "    sudo mount.cifs //$IP_SERVIDOR/publico /mnt/nas/publico \\"
 echo "      -o username=invitado,vers=3.0,uid=$UID_REAL,gid=$GID_REAL,iocharset=utf8"
@@ -125,7 +130,7 @@ echo "    smbclient -L //$IP_SERVIDOR -U admin"
 echo ""
 
 echo -e "${VERDE}${NEGRITA}+============================================================+${RESET}"
-echo -e "${VERDE}${NEGRITA}|  Cliente Arch Linux configurado.                            |${RESET}"
-echo -e "${VERDE}${NEGRITA}|  Accede al NAS con Thunar: smb://$IP_SERVIDOR      |${RESET}"
+echo -e "${VERDE}${NEGRITA}|  Cliente Ubuntu configurado.                                |${RESET}"
+echo -e "${VERDE}${NEGRITA}|  Accede al NAS con Nautilus: smb://$IP_SERVIDOR    |${RESET}"
 echo -e "${VERDE}${NEGRITA}+============================================================+${RESET}"
 echo ""
