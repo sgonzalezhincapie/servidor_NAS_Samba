@@ -23,7 +23,7 @@ NEGRITA='\033[1m'
 RESET='\033[0m'
 
 # ─── CONFIGURACION — MODIFICAR ANTES DE EJECUTAR ────────────────────────────
-IP_SERVIDOR="192.168.1.55"
+IP_SERVIDOR="192.168.1.113"
 
 # ─── VERIFICACIONES INICIALES ────────────────────────────────────────────────
 if [ "$(id -u)" -ne 0 ]; then

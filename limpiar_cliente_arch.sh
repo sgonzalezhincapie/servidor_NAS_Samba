@@ -46,7 +46,7 @@ fi
 echo ""
 
 # ─── PASO 1: DESMONTAR ───────────────────────────────────────────────────────
-echo -e "${NEGRITA}[1/3] Desmontando unidades NAS...${RESET}"
+echo -e "${NEGRITA}[1/4] Desmontando unidades NAS...${RESET}"
 echo ""
 
 if mount | grep -q "/mnt/nas"; then
@@ -62,8 +62,31 @@ rm -rf /mnt/nas 2>/dev/null \
     || info "/mnt/nas no existia."
 echo ""
 
-# ─── PASO 2: DESINSTALAR PAQUETES ───────────────────────────────────────────
-echo -e "${NEGRITA}[2/3] Desinstalando paquetes...${RESET}"
+# ─── PASO 2: LIMPIAR CACHÉ GVFS (Thunar/SMB) ────────────────────────────────
+echo -e "${NEGRITA}[2/4] Limpiando cache de GVFS (Thunar)...${RESET}"
+echo ""
+
+# Matar el daemon gvfs-smb del usuario real para forzar que olvide los shares cacheados
+if [ -n "$SUDO_USER" ]; then
+    su -c "pkill -u \"\$USER\" gvfsd-smb 2>/dev/null; pkill -u \"\$USER\" gvfsd-smb-browse 2>/dev/null; true" "$SUDO_USER" 2>/dev/null \
+        && ok "Daemons gvfs-smb detenidos para el usuario $SUDO_USER." \
+        || info "gvfs-smb no estaba corriendo (normal si Thunar estaba cerrado)."
+
+    # Eliminar cache de bookmarks y metadata de GVFS del usuario real
+    GVFS_CACHE="/home/${SUDO_USER}/.cache/gvfs"
+    if [ -d "$GVFS_CACHE" ]; then
+        rm -rf "$GVFS_CACHE"
+        ok "Cache de GVFS eliminado: $GVFS_CACHE"
+    else
+        info "No se encontro cache de GVFS en $GVFS_CACHE."
+    fi
+else
+    info "No se detecto SUDO_USER; omitiendo limpieza de cache de GVFS."
+fi
+echo ""
+
+# ─── PASO 3: DESINSTALAR PAQUETES ───────────────────────────────────────────
+echo -e "${NEGRITA}[3/4] Desinstalando paquetes...${RESET}"
 echo ""
 
 pacman -Rns --noconfirm cifs-utils smbclient gvfs gvfs-smb 2>/dev/null \
@@ -71,8 +94,8 @@ pacman -Rns --noconfirm cifs-utils smbclient gvfs gvfs-smb 2>/dev/null \
     || info "Algunos paquetes no estaban instalados (normal si nunca se instalaron)."
 echo ""
 
-# ─── PASO 3: RESUMEN ────────────────────────────────────────────────────────
-echo -e "${NEGRITA}[3/3] Limpieza completada.${RESET}"
+# ─── PASO 4: RESUMEN ────────────────────────────────────────────────────────
+echo -e "${NEGRITA}[4/4] Limpieza completada.${RESET}"
 echo ""
 echo -e "${VERDE}  Tu equipo ya no tiene configuracion de cliente NAS.${RESET}"
 echo "  Para volver a configurar el acceso:"
