@@ -240,7 +240,9 @@ for i in "${!NOMBRES_USERS[@]}"; do
     UNAME="${NOMBRES_USERS[$i]}"
     UGRUPO="${GRUPOS_USERS[$i]}"
     UGLOW=$(echo "$UGRUPO" | tr '[:upper:]' '[:lower:]')
-    id "$UNAME" &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin "$UNAME"
+    # -m: crea /home/$UNAME — necesario si el servidor tambien tiene correo (Postfix/Dovecot)
+    # No afecta en absoluto al acceso Samba (que usa tdbsam, independiente de /etc/shadow)
+    id "$UNAME" &>/dev/null || useradd -m --shell /usr/sbin/nologin "$UNAME"
     usermod -aG usuarios "$UNAME"
     usermod -aG "$UGLOW" "$UNAME"
     echo -e "    ${VERDE}${UNAME} -> usuarios, ${UGLOW}${RESET}"
@@ -356,7 +358,7 @@ echo "    Arch/Ubuntu -> abrir gestor de archivos y escribir: smb://${IP_ACTUAL:
 echo ""
 echo "  Comandos utiles de administracion:"
 echo "  - Agregar usuario:"
-echo "      sudo useradd --no-create-home --shell /usr/sbin/nologin NOMBRE"
+echo "      sudo useradd -m --shell /usr/sbin/nologin NOMBRE"
 echo "      sudo usermod -aG usuarios NOMBRE && sudo usermod -aG GRUPO NOMBRE"
 echo "      sudo smbpasswd -a NOMBRE"
 echo "  - Cambiar contrasena:  sudo smbpasswd NOMBRE"
