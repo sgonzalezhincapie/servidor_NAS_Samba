@@ -120,6 +120,7 @@ RESP_USERS="${RESP_USERS:-S}"
 NOMBRES_USERS=()
 PASSES_USERS=()
 GRUPOS_USERS=()
+CORREO_USERS=()
 
 if [[ "$RESP_USERS" =~ ^[Ss]$ ]]; then
     while true; do
@@ -150,10 +151,17 @@ if [[ "$RESP_USERS" =~ ^[Ss]$ ]]; then
                 fi
                 echo -e "    ${ROJO}Elige un numero entre 1 y ${#GRUPOS[@]}.${RESET}"
             done
+            read -rp "    Tambien agregar a servidor de correo? [s/N]: " UCORREO
+            UCORREO="${UCORREO:-N}"
             NOMBRES_USERS+=("$UNAME")
             PASSES_USERS+=("$UPASS")
             GRUPOS_USERS+=("$UGRUPO")
-            echo -e "    ${VERDE}${UNAME} -> grupo ${UGRUPO}${RESET}"
+            CORREO_USERS+=("$UCORREO")
+            if [[ "$UCORREO" =~ ^[sS]$ ]]; then
+                echo -e "    ${VERDE}${UNAME} -> grupo ${UGRUPO}, correo: si${RESET}"
+            else
+                echo -e "    ${VERDE}${UNAME} -> grupo ${UGRUPO}${RESET}"
+            fi
             echo ""
         done
     fi
@@ -172,7 +180,11 @@ echo "  Usuarios:"
 echo "    * admin    (acceso total)"
 echo "    * invitado (solo lectura publica)"
 for i in "${!NOMBRES_USERS[@]}"; do
-    echo "    * ${NOMBRES_USERS[$i]}  -> grupo ${GRUPOS_USERS[$i]}"
+    if [[ "${CORREO_USERS[$i]}" =~ ^[sS]$ ]]; then
+        echo "    * ${NOMBRES_USERS[$i]}  -> grupo ${GRUPOS_USERS[$i]}  [+ correo]"
+    else
+        echo "    * ${NOMBRES_USERS[$i]}  -> grupo ${GRUPOS_USERS[$i]}"
+    fi
 done
 echo ""
 read -rp "  Confirmas la instalacion? [S/n]: " CONFIRMAR
@@ -246,6 +258,16 @@ for i in "${!NOMBRES_USERS[@]}"; do
     usermod -aG usuarios "$UNAME"
     usermod -aG "$UGLOW" "$UNAME"
     echo -e "    ${VERDE}${UNAME} -> usuarios, ${UGLOW}${RESET}"
+    if [[ "${CORREO_USERS[$i]}" =~ ^[sS]$ ]]; then
+        # Asignar contrasena Linux para que Postfix/Dovecot puedan autenticar
+        printf '%s:%s\n' "$UNAME" "${PASSES_USERS[$i]}" | chpasswd
+        # Crear Maildir si Postfix esta instalado (primer correo lo crea, pero
+        # es util tenerlo listo desde el principio)
+        if command -v postconf &>/dev/null && [ -d "/home/$UNAME" ]; then
+            su -s /bin/sh "$UNAME" -c "mkdir -p ~/Maildir/{cur,new,tmp}" 2>/dev/null || true
+        fi
+        echo -e "    ${VERDE}${UNAME} habilitado para correo (contrasena Linux + Maildir)${RESET}"
+    fi
 done
 
 header "7/10 — Permisos POSIX"
