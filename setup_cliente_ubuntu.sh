@@ -8,9 +8,6 @@
 # USO:
 #   sudo bash setup_cliente_ubuntu.sh
 #
-# ANTES DE EJECUTAR:
-#   Edita la variable IP_SERVIDOR con la IP del servidor NAS.
-#   Para encontrarla: en el servidor ejecuta: ip -4 addr show
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -e
@@ -22,9 +19,6 @@ CYAN='\033[0;36m'
 NEGRITA='\033[1m'
 RESET='\033[0m'
 
-# ─── CONFIGURACION — MODIFICAR ANTES DE EJECUTAR ────────────────────────────
-IP_SERVIDOR="192.168.1.55"
-
 # ─── VERIFICACIONES INICIALES ────────────────────────────────────────────────
 if [ "$(id -u)" -ne 0 ]; then
     echo -e "${ROJO}ERROR: Este script debe ejecutarse con sudo.${RESET}"
@@ -32,8 +26,10 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+read -rp "Introduce la IP del servidor NAS: " IP_SERVIDOR
+
 if [ -z "$IP_SERVIDOR" ] || echo "$IP_SERVIDOR" | grep -q '[<>]'; then
-    echo -e "${ROJO}ERROR: Configura la variable IP_SERVIDOR al inicio del script.${RESET}"
+    echo -e "${ROJO}ERROR: La IP introducida no es valida.${RESET}"
     exit 1
 fi
 

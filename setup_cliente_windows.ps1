@@ -19,31 +19,18 @@
 #   3. Ejecutar:
 #      .\setup_cliente_windows.ps1
 #
-# ANTES DE EJECUTAR:
-#   Reemplaza <IP_SERVIDOR> en la variable $IP_SERVIDOR (línea ~40) por la IP
-#   real del servidor Ubuntu.
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONFIGURACIÓN — MODIFICAR ANTES DE EJECUTAR
-# ─────────────────────────────────────────────────────────────────────────────
-# IMPORTANTE: Cambia esta IP por la IP real de tu servidor Ubuntu 24.04
-$IP_SERVIDOR = "192.168.1.55"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VERIFICACIONES INICIALES
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Por qué: Verificamos que el usuario haya puesto una IP válida (no vacía ni placeholder)
+$IP_SERVIDOR = Read-Host "Introduce la IP del servidor NAS"
+
 if ([string]::IsNullOrWhiteSpace($IP_SERVIDOR) -or $IP_SERVIDOR -match "[<>]") {
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║  ERROR: Debes configurar la IP del servidor.              ║" -ForegroundColor Red
-    Write-Host "║                                                           ║" -ForegroundColor Red
-    Write-Host '║  Abre este script y cambia la línea:                      ║' -ForegroundColor Red
-    Write-Host '║    $IP_SERVIDOR = "<IP_SERVIDOR>"                         ║' -ForegroundColor Red
-    Write-Host "║  Por la IP real del servidor Ubuntu, por ejemplo:         ║" -ForegroundColor Red
-    Write-Host '║    $IP_SERVIDOR = "192.168.1.100"                         ║' -ForegroundColor Red
+    Write-Host "║  ERROR: La IP introducida no es valida.                   ║" -ForegroundColor Red
     Write-Host "╚════════════════════════════════════════════════════════════╝" -ForegroundColor Red
     exit 1
 }
