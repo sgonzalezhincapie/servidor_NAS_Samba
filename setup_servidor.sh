@@ -198,14 +198,34 @@ fi
 # INSTALACION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-header "1/10 — Actualizar lista de paquetes"
-apt update -y 2>&1 | tail -1 || true
-echo -e "    ${VERDE}Lista actualizada.${RESET}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAQUETES_DIR="${SCRIPT_DIR}/paquetes/servidor"
+
+header "1/10 — Verificar paquetes disponibles"
+if ls "$PAQUETES_DIR"/*.deb &>/dev/null 2>&1; then
+    NUM_DEBS=$(ls "$PAQUETES_DIR"/*.deb | wc -l)
+    info "Modo OFFLINE: se usaran ${NUM_DEBS} paquetes locales desde paquetes/servidor/"
+    MODO_OFFLINE_SRV=true
+else
+    apt update -y 2>&1 | tail -1 || true
+    echo -e "    ${VERDE}Lista de paquetes actualizada (modo online).${RESET}"
+    MODO_OFFLINE_SRV=false
+fi
 
 header "2/10 — Instalar Samba y herramientas"
-DEBIAN_FRONTEND=noninteractive apt install -y samba samba-common smbclient acl attr 2>&1 | tail -5 || true
+if [ "$MODO_OFFLINE_SRV" = true ]; then
+    dpkg -i "$PAQUETES_DIR"/*.deb 2>&1 | tail -5 || true
+else
+    DEBIAN_FRONTEND=noninteractive apt install -y samba samba-common smbclient acl attr 2>&1 | tail -5 || true
+fi
 if ! command -v smbd &>/dev/null; then
-    echo -e "    ${ROJO}ERROR: Samba no se instalo correctamente. Intenta: sudo apt install -y samba${RESET}"
+    echo -e "    ${ROJO}ERROR: Samba no se instalo correctamente.${RESET}"
+    if [ "$MODO_OFFLINE_SRV" = false ]; then
+        echo -e "    ${ROJO}Intenta: sudo apt install -y samba${RESET}"
+    else
+        echo -e "    ${ROJO}Verifica que los paquetes en paquetes/servidor/ sean correctos.${RESET}"
+        echo -e "    ${ROJO}Ejecuta descargar_paquetes.sh con internet para regenerarlos.${RESET}"
+    fi
     exit 1
 fi
 echo -e "    ${VERDE}Samba instalado: $(smbd --version)${RESET}"

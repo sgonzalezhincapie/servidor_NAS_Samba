@@ -53,7 +53,16 @@ echo ""
 # gvfs       : capa de abstraccion de sistemas de archivos virtuales para GTK
 # gvfs-smb   : complemento de gvfs que permite acceder a shares SMB desde
 #              el explorador de archivos Thunar (y otros gestores GTK)
-pacman -S --needed --noconfirm cifs-utils smbclient gvfs gvfs-smb
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAQUETES_DIR="${SCRIPT_DIR}/paquetes/cliente_arch"
+
+if ls "$PAQUETES_DIR"/*.pkg.tar.* &>/dev/null 2>&1; then
+    NUM_PKGS=$(ls "$PAQUETES_DIR"/*.pkg.tar.* | wc -l)
+    echo -e "    Modo OFFLINE: usando ${NUM_PKGS} paquetes locales desde paquetes/cliente_arch/"
+    pacman -U --needed --noconfirm "$PAQUETES_DIR"/*.pkg.tar.* 2>&1 | tail -5 || true
+else
+    pacman -S --needed --noconfirm cifs-utils smbclient gvfs gvfs-smb
+fi
 echo -e "    ${VERDE}cifs-utils, smbclient, gvfs, gvfs-smb instalados.${RESET}"
 echo ""
 

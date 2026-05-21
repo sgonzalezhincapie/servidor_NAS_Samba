@@ -53,7 +53,16 @@ echo ""
 # gvfs-backends : paquete de Ubuntu que incluye soporte SMB para Nautilus
 #                 (el gestor de archivos de GNOME). Permite acceder a
 #                 smb:// directamente desde el explorador de archivos.
-DEBIAN_FRONTEND=noninteractive apt install -y cifs-utils smbclient gvfs-backends 2>&1 | tail -5 || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PAQUETES_DIR="${SCRIPT_DIR}/paquetes/cliente_ubuntu"
+
+if ls "$PAQUETES_DIR"/*.deb &>/dev/null 2>&1; then
+    NUM_DEBS=$(ls "$PAQUETES_DIR"/*.deb | wc -l)
+    echo -e "    Modo OFFLINE: usando ${NUM_DEBS} paquetes locales desde paquetes/cliente_ubuntu/"
+    dpkg -i "$PAQUETES_DIR"/*.deb 2>&1 | tail -5 || true
+else
+    DEBIAN_FRONTEND=noninteractive apt install -y cifs-utils smbclient gvfs-backends 2>&1 | tail -5 || true
+fi
 echo -e "    ${VERDE}cifs-utils, smbclient, gvfs-backends instalados.${RESET}"
 echo ""
 
